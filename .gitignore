@@ -1,0 +1,8 @@
+# Local planning notes (not committed)
+UI-CHANGES.md
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Slate Helper",
+  "version": "0.1.0",
+  "description": "UI and UX improvements for Technolutions Slate, on any client's Slate instance.",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "Slate Helper",
+    "default_popup": "src/popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/content/probe-main.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": [
+        "src/content/core.js",
+        "src/content/detect.js",
+        "src/content/features/instance-badge.js",
+        "src/content/main.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
