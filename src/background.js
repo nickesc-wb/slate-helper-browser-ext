@@ -1,10 +1,6 @@
-// Shows a small green dot on the toolbar icon for tabs where Slate Helper is
-// active. A single-space badge renders as a dot with no lettering.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'slate-helper:status' && sender.tab?.id != null) {
-    const tabId = sender.tab.id;
-    chrome.action.setBadgeText({ tabId, text: msg.active ? ' ' : '' });
-    chrome.action.setBadgeBackgroundColor({ tabId, color: '#2e7d32' });
+    setActiveIcon(sender.tab.id, msg.active).catch(() => {}); // the tab may be gone
   }
   if (msg?.type === 'slate-helper:dev-check' && sender.tab?.id != null) devCheck(sender.tab.id);
   if (msg?.type === 'slate-helper:hash-image') {
@@ -12,6 +8,45 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true; // respond asynchronously
   }
 });
+
+// --- Toolbar icon --------------------------------------------------------------
+// Tabs where Slate Helper is active get the icon with a small green dot in the
+// corner. (Chrome's badge can't be made that small: even an empty badge is a
+// fixed-size block.)
+const ICON_SIZES = [16, 32];
+let dotIcons = null; // { 16: ImageData, 32: ImageData }, built once
+
+async function buildDotIcons() {
+  const out = {};
+  for (const size of ICON_SIZES) {
+    const blob = await (await fetch(chrome.runtime.getURL(`icons/icon-${size}.png`))).blob();
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(await createImageBitmap(blob), 0, 0, size, size);
+    const r = size * 0.19; // dot radius: 3px at 16px
+    const ring = size * 0.07; // white ring so it reads on the blue tile
+    const c = size - r - ring; // ring touches the corner without being clipped
+    ctx.beginPath();
+    ctx.arc(c, c, r + ring, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(c, c, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#34a853';
+    ctx.fill();
+    out[size] = ctx.getImageData(0, 0, size, size);
+  }
+  return out;
+}
+
+async function setActiveIcon(tabId, active) {
+  if (!active) {
+    const paths = Object.fromEntries(ICON_SIZES.map((s) => [s, `icons/icon-${s}.png`]));
+    return chrome.action.setIcon({ tabId, path: paths });
+  }
+  dotIcons ||= await buildDotIcons();
+  return chrome.action.setIcon({ tabId, imageData: dotIcons });
+}
 
 // Content scripts can't read images from other origins (client favicons live
 // on Slate's CDN), so they ask the background for the image's SHA-256.
