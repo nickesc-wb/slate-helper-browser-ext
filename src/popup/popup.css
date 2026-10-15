@@ -61,18 +61,7 @@ button { font: inherit; color: inherit; }
 
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
-.logo {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #1b74c4, #0d4f8c);
-  color: #fff;
-  font-weight: 800;
-  font-size: 16px;
-}
+.logo { flex: none; width: 30px; height: 30px; }
 
 .brand-text { min-width: 0; }
 h1 { margin: 0; font-size: 14px; font-weight: 650; }
