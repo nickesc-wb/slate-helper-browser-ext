@@ -33,18 +33,32 @@
 
   if (!active) return;
 
+  chrome.runtime.sendMessage({ type: 'slate-helper:dev-check' }).catch(() => {});
   document.documentElement.classList.add('slate-helper-active', `slate-helper-area-${detection.area}`);
+
+  // Hand the enabled page-world features over to src/page/runtime.js.
+  const pageEnabled = SH.features
+    .filter((f, i) => f.world === 'page' && features[i].enabled && features[i].appliesHere)
+    .map((f) => f.id);
+  document.documentElement.setAttribute('data-slate-helper-config', JSON.stringify({
+    area: detection.area,
+    debug: settings.debug,
+    enabled: pageEnabled,
+  }));
+  document.dispatchEvent(new CustomEvent('slate-helper:activate'));
+  features.forEach((info) => { if (pageEnabled.includes(info.id)) info.running = true; });
 
   const ctx = { host, area: detection.area, settings };
   SH.features.forEach((feature, i) => {
     const info = features[i];
-    if (!info.enabled || !info.appliesHere) return;
+    if (feature.world === 'page' || !info.enabled || !info.appliesHere) return;
+    const fail = (err) => console.error(`[Slate Helper] feature "${feature.id}" failed`, err);
     try {
-      feature.init(ctx);
+      Promise.resolve(feature.init(ctx)).catch(fail); // init may be async
       info.running = true;
       SH.log('started', feature.id);
     } catch (err) {
-      console.error(`[Slate Helper] feature "${feature.id}" failed`, err);
+      fail(err);
     }
   });
 })();

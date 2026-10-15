@@ -11,7 +11,16 @@
   </header>
 
   <section id="unavailable" hidden>
-    <p>Slate Helper can't run on this page.</p>
+    <p>Slate Helper can't run on this kind of page.</p>
+  </section>
+
+  <section id="disconnected" hidden>
+    <p>This page was opened before Slate Helper was installed or updated, so it isn't connected yet.</p>
+    <button id="reload-disconnected">Reload page</button>
+  </section>
+
+  <section id="loading" hidden>
+    <p class="muted">Still checking this page…</p>
   </section>
 
   <section id="main" hidden>

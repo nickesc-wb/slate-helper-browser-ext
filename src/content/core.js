@@ -20,6 +20,8 @@
    *   defaultEnabled: boolean
    *   areas:          '*' or any of ['admin', 'portal', 'apply', 'other']
    *   init(ctx):      called once when the page is a Slate page
+   *   world:          'page' for features whose code runs in the MAIN world
+   *                   (src/page/features/); those have no init here
    */
   SH.registerFeature = (feature) => SH.features.push(feature);
 
@@ -64,7 +66,7 @@
     observer = new MutationObserver(() => {
       if (pending) return;
       pending = true;
-      requestAnimationFrame(flush);
+      setTimeout(flush, 30); // not rAF: it does not run in hidden tabs
     });
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
     window.addEventListener('popstate', flush);
@@ -79,7 +81,7 @@
     }
   };
 
-  /** Run cb (debounced to one call per frame) whenever the DOM changes. */
+  /** Run cb (debounced) whenever the DOM changes. */
   SH.onDomChange = (cb) => {
     ensureObserver();
     domCallbacks.push(cb);

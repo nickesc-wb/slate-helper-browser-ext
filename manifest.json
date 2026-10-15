@@ -3,7 +3,7 @@
   "name": "Slate Helper",
   "version": "0.1.0",
   "description": "UI and UX improvements for Technolutions Slate, on any client's Slate instance.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "activeTab"],
   "background": {
     "service_worker": "src/background.js"
   },
@@ -14,7 +14,20 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["src/content/probe-main.js"],
+      "js": [
+        "src/content/probe-main.js",
+        "src/page/runtime.js",
+        "src/page/cm-utils.js",
+        "src/page/features/editor-dialog-size.js",
+        "src/page/features/editor-keep-open.js",
+        "src/page/features/link-dialog.js",
+        "src/page/features/source-indent.js",
+        "src/page/features/source-autoclose.js",
+        "src/page/features/source-autocomplete.js",
+        "src/page/features/source-find-replace.js",
+        "src/page/features/source-element-highlight.js",
+        "src/page/boot.js"
+      ],
       "run_at": "document_idle",
       "world": "MAIN"
     },
@@ -24,6 +37,9 @@
         "src/content/core.js",
         "src/content/detect.js",
         "src/content/features/instance-badge.js",
+        "src/content/features/instance-favicon.js",
+        "src/content/features/dblclick-picker.js",
+        "src/content/page-features.js",
         "src/content/main.js"
       ],
       "run_at": "document_idle"

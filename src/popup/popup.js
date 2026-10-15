@@ -3,19 +3,42 @@ const DEFAULT_SETTINGS = { siteOverrides: {}, features: {}, debug: false };
 
 const showReloadNote = () => { $('reload-note').hidden = false; };
 
+const getState = async (tabId) => {
+  try {
+    return await chrome.tabs.sendMessage(tabId, { type: 'slate-helper:get-state' });
+  } catch {
+    return null; // no content script in the tab
+  }
+};
+
+const reloadTab = (tabId) => {
+  chrome.tabs.reload(tabId);
+  window.close();
+};
+
 (async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  let state;
-  try {
-    state = await chrome.tabs.sendMessage(tab.id, { type: 'slate-helper:get-state' });
-  } catch {
-    state = null; // chrome:// pages, the Web Store, or a tab opened before install
+  // Detection can take up to ~1s after the page loads; wait for it.
+  let state = await getState(tab.id);
+  for (let i = 0; state && !state.ready && i < 10; i++) {
+    $('loading').hidden = false;
+    await new Promise((r) => setTimeout(r, 300));
+    state = await getState(tab.id);
   }
+  $('loading').hidden = true;
 
   if (!state?.ready) {
     $('status').textContent = 'n/a';
-    $('unavailable').hidden = false;
+    // No content script on a web page means the tab was open before the
+    // extension was installed or reloaded. Anything else (chrome://, the Web
+    // Store, PDFs...) is a page extensions can't run on.
+    if (/^https?:/.test(tab.url || '')) {
+      $('disconnected').hidden = false;
+      $('reload-disconnected').addEventListener('click', () => reloadTab(tab.id));
+    } else {
+      $('unavailable').hidden = false;
+    }
     return;
   }
 
@@ -70,8 +93,5 @@ const showReloadNote = () => { $('reload-note').hidden = false; };
     $('features').appendChild(li);
   }
 
-  $('reload').addEventListener('click', () => {
-    chrome.tabs.reload(tab.id);
-    window.close();
-  });
+  $('reload').addEventListener('click', () => reloadTab(tab.id));
 })();
