@@ -56,7 +56,7 @@
     });
   };
 
-  // "Save & Close" next to Save: Slate's original Save behavior. It calls the
+  // "Save & Close" just before Save: Slate's original Save behavior. It calls the
   // commit directly (no onclick attribute), so the click handler below leaves
   // it alone and the dialog closes as usual.
   const addSaveAndClose = (host) => {
@@ -69,7 +69,7 @@
     button.addEventListener('click', () => {
       if (window.FW.Validate(save)) window.FW.Lazy.Commit(save, { cmd: 'save' });
     });
-    save.after(' ', button); // Slate separates its buttons with a space
+    save.before(button, ' '); // Slate separates its buttons with a space
   };
 
   SHP.registerFeature('editor-keep-open', () => {
