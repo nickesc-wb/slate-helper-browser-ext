@@ -2,55 +2,63 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <header>
-    <h1>Slate Helper</h1>
-    <span id="status" class="pill">…</span>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">S</span>
+      <div class="brand-text">
+        <h1>Slate Helper</h1>
+        <div class="host" id="host"></div>
+      </div>
+    </div>
+    <span id="status" class="status"><span class="dot"></span><span id="status-text">…</span></span>
   </header>
 
-  <section id="unavailable" hidden>
+  <section id="loading" class="empty" hidden>
+    <span class="spinner" aria-hidden="true"></span>
+    <p>Checking this page…</p>
+  </section>
+
+  <section id="unavailable" class="empty" hidden>
+    <p class="empty-title">Not available here</p>
     <p>Slate Helper can't run on this kind of page.</p>
   </section>
 
-  <section id="disconnected" hidden>
-    <p>This page was opened before Slate Helper was installed or updated, so it isn't connected yet.</p>
-    <button id="reload-disconnected">Reload page</button>
+  <section id="disconnected" class="empty" hidden>
+    <p class="empty-title">Reload to connect</p>
+    <p>This page was opened before Slate Helper was installed or updated.</p>
+    <button id="reload-disconnected" class="btn primary">Reload page</button>
   </section>
 
-  <section id="loading" hidden>
-    <p class="muted">Still checking this page…</p>
-  </section>
+  <main id="main" hidden>
+    <section class="card site">
+      <div class="site-row">
+        <span class="label">This site</span>
+        <div class="segmented" id="override" role="radiogroup" aria-label="Slate Helper on this site">
+          <button type="button" role="radio" data-value="auto">Auto</button>
+          <button type="button" role="radio" data-value="on">On</button>
+          <button type="button" role="radio" data-value="off">Off</button>
+        </div>
+      </div>
+      <details class="detect">
+        <summary>
+          <span id="area" class="chip"></span>
+          <span class="score">Detection score <b id="score"></b></span>
+        </summary>
+        <ul id="signals"></ul>
+      </details>
+    </section>
 
-  <section id="main" hidden>
-    <div class="row">
-      <span class="host" id="host"></span>
-      <span class="muted" id="area"></span>
-    </div>
-
-    <label class="row">
-      <span>This site</span>
-      <select id="override">
-        <option value="auto">Auto-detect</option>
-        <option value="on">Always on</option>
-        <option value="off">Always off</option>
-      </select>
-    </label>
-
-    <details>
-      <summary>Detection: score <span id="score"></span></summary>
-      <ul id="signals"></ul>
-    </details>
-
-    <h2>Features</h2>
     <div id="features"></div>
+  </main>
 
-    <p id="reload-note" class="note" hidden>
-      Changes apply after reload.
-      <button id="reload">Reload page</button>
-    </p>
-  </section>
+  <footer id="reload-note" class="reload-bar" hidden>
+    <span>Reload the page to apply changes</span>
+    <button id="reload" class="btn primary small">Reload</button>
+  </footer>
 
   <script src="popup.js"></script>
 </body>
