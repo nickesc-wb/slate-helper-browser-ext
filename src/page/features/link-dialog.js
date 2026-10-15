@@ -26,7 +26,10 @@
   };
 
   const extendDefinition = (def) => {
-    def.getContents('info').add({
+    const newTabButton = SHP.option('link-dialog', 'newTabButton');
+    const tabToTarget = SHP.option('link-dialog', 'tabToTarget');
+
+    if (newTabButton) def.getContents('info').add({
       type: 'button',
       id: BUTTON_ID,
       label: LABEL,
@@ -41,9 +44,9 @@
     def.onLoad = function (...args) {
       onLoad?.apply(this, args);
       const dialog = this;
-      targetSelect(dialog)?.on('change', () => updateLabel(dialog));
+      if (newTabButton) targetSelect(dialog)?.on('change', () => updateLabel(dialog));
       // Capture phase, so this runs before CKEditor's own Tab handling.
-      dialog.parts.dialog.$.addEventListener('keydown', (e) => {
+      if (tabToTarget) dialog.parts.dialog.$.addEventListener('keydown', (e) => {
         if (e.key !== 'Tab' || e.shiftKey || dialog._.currentTabId !== 'info') return;
         if (e.target !== lastInfoField(dialog)) return;
         e.preventDefault();
@@ -54,7 +57,7 @@
     };
     def.onShow = function (...args) {
       onShow?.apply(this, args);
-      updateLabel(this);
+      if (newTabButton) updateLabel(this);
     };
   };
 

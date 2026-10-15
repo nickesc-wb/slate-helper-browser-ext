@@ -20,12 +20,21 @@
    *   defaultEnabled: boolean
    *   areas:          '*' or any of ['admin', 'portal', 'apply', 'other']
    *   init(ctx):      called once when the page is a Slate page
+   *   group:          popup section heading
+   *   options:        optional sub-toggles: [{ id, name, defaultEnabled }];
+   *                   read with ctx.option(id)
    *   world:          'page' for features whose code runs in the MAIN world
    *                   (src/page/features/); those have no init here
    */
   SH.registerFeature = (feature) => SH.features.push(feature);
 
   SH.getSettings = () => chrome.storage.sync.get(SH.DEFAULT_SETTINGS);
+
+  // Popup section order. Features without a group go last.
+  SH.GROUPS = ['Client instance', 'Dialogs', 'Source view', 'Query builder'];
+
+  /** Settings key for a feature option: settings.features['<feature>.<option>']. */
+  SH.optionKey = (featureId, optionId) => `${featureId}.${optionId}`;
 
   SH.log = (...args) => {
     if (SH.debug) console.log('[Slate Helper]', ...args);

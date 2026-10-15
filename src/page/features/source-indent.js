@@ -5,6 +5,8 @@
 //  - Enter between an opening and closing tag (or a Liquid block and its end
 //    tag) splits it onto three lines with the middle one indented.
 //  - Pasted multi-line code is re-indented to line up with the cursor.
+//  - Typing a block tag no longer splits it onto three lines (Slate default).
+// Each is a separate option in the popup.
 (() => {
   const SHP = window.SlateHelperPage;
   const { INDENT } = SHP;
@@ -68,16 +70,25 @@
     ]);
   };
 
+  // Slate's editor splits block tags like <div> onto three lines the moment
+  // you type the ">" (CodeMirror's closetag "indentTags"). Turning that list
+  // off still auto-closes tags, just on one line: <div>|</div>.
+  const stopSplitOnType = (cm) => {
+    const current = cm.getOption('autoCloseTags');
+    if (!current) return;
+    cm.setOption('autoCloseTags', { ...(typeof current === 'object' ? current : {}), indentTags: [] });
+  };
+
   SHP.registerFeature('source-indent', () => {
+    const on = (option) => SHP.option('source-indent', option);
     SHP.onCodeMirror((cm) => {
-      cm.addKeyMap({
-        name: 'slate-helper-indent',
-        Tab: tab,
-        'Shift-Tab': 'indentLess',
-        Backspace: backspace,
-        Enter: enter,
-      }, true);
-      cm.on('beforeChange', reindentPaste);
+      const keys = { name: 'slate-helper-indent' };
+      if (on('tab')) Object.assign(keys, { Tab: tab, 'Shift-Tab': 'indentLess' });
+      if (on('backspace')) keys.Backspace = backspace;
+      if (on('enter')) keys.Enter = enter;
+      cm.addKeyMap(keys, true);
+      if (on('paste')) cm.on('beforeChange', reindentPaste);
+      if (!on('splitOnType')) stopSplitOnType(cm);
     });
   });
 })();

@@ -11,6 +11,9 @@
   /** Register a page feature. init(config) runs once if the feature is enabled. */
   SHP.registerFeature = (id, init) => { SHP.features[id] = init; };
 
+  /** Whether a feature option (sub-toggle in the popup) is on. */
+  SHP.option = (featureId, optionId) => SHP.options?.[`${featureId}.${optionId}`] !== false;
+
   SHP.log = (...args) => {
     if (SHP.debug) console.log('[Slate Helper]', ...args);
   };
@@ -77,6 +80,7 @@
       started = true;
       const config = JSON.parse(raw);
       SHP.debug = config.debug;
+      SHP.options = config.options || {};
       for (const id of config.enabled) {
         const init = SHP.features[id];
         if (!init) continue;

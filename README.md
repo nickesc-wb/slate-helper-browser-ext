@@ -10,21 +10,21 @@ A Chrome extension (Manifest V3) that improves the UI and UX of Technolutions Sl
 
 There's no build step. The files are plain JS.
 
-**Auto-reload:** for unpacked installs, each time a Slate page loads, the extension checks whether its files changed since it was loaded. If they did, it reloads itself and then reloads every open Slate tab (a reload disconnects the extension from all of them). So after editing, just reload a Slate page. If Chrome rejects a manifest change, the extension stops loading; fix it and use the reload button on `chrome://extensions`.
+**Auto-reload:** for unpacked installs, each time a Slate page loads, the extension checks whether its files changed since it was loaded. If they did, it reloads itself and then reloads that tab. Other open tabs are left alone (they might have unsaved work) and stay disconnected until refreshed; the popup offers a Reload button. So after editing, just reload a Slate page. If Chrome rejects a manifest change, the extension stops loading; fix it and use the reload button on `chrome://extensions`.
 
 ## Features
 
-All are on by default and can be switched off in the toolbar popup.
+All are on by default and can be switched off in the toolbar popup, grouped by section. Most have sub-options, so individual behaviors can be switched off too.
 
 | Feature | What it does |
 |---|---|
 | Instance badge | Corner badge with the hostname and Slate area |
-| Client favicon in header | The instance's favicon left of the Slate logo (skipped if it's Slate's default icon) |
+| Client favicon in header | The instance's favicon left of the Slate logo, in both the desktop and compact header (skipped if it's Slate's default icon) |
 | Double-click to pick | Query builder: double-click an export or filter to select it and continue |
-| Editor dialog size | Dialogs never wider than the window; WYSIWYG editor dialogs open at 85% of the window height |
+| Dialog size | Dialogs stay inside the window; editor dialogs open at 85% of the window height; drag any edge or corner to resize |
 | Keep editor open after Save | Save / Ctrl+S in an editor dialog saves without closing it |
 | Link dialog shortcuts | "Open in new tab" button; Tab from the URL field opens the Target tab |
-| Source view: indentation | Tab = 2 spaces, Backspace removes an indent level, Enter between tags splits and indents, pastes re-indent |
+| Source view: indentation | Tab = 2 spaces, Backspace removes an indent level, Enter between tags splits and indents, pastes re-indent; turns off Slate's split-on-type for block tags |
 | Source view: auto-close pairs | `( [ { " '` auto-close; quotes only in code (tags, `<style>`, `<script>`, Liquid) |
 | Source view: autocomplete | HTML tags, attribute snippets, Liquid keywords, filters and variables |
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
@@ -87,10 +87,13 @@ src/
   SH.registerFeature({
     id: 'my-feature',
     name: 'My feature',
+    group: 'Dialogs',          // popup section (see SH.GROUPS in core.js)
     description: 'What it does, shown in the popup.',
     defaultEnabled: true,
     areas: ['admin'],          // or '*'
-    init(ctx) {                // ctx: { host, area, settings }; may be async
+    options: [{ id: 'part', name: 'One part of it', defaultEnabled: true }],
+    init(ctx) {                // ctx: { host, area, settings, option(id) }; may be async
+      if (!ctx.option('part')) return;
       SH.injectStyle('my-feature', `/* css */`);
       // Slate swaps content in place, so re-apply on DOM changes:
       SH.onDomChange(() => { /* idempotent DOM tweaks */ });
@@ -105,6 +108,7 @@ src/
 (() => {
   const SHP = window.SlateHelperPage;
   SHP.registerFeature('my-feature', () => {
+    if (!SHP.option('my-feature', 'part')) return; // options, as declared in page-features.js
     SHP.onCodeMirror((cm) => { /* every source-view editor */ });
     SHP.onCKEditor((editor) => { /* every CKEditor, once ready */ });
     SHP.onAdded('.dialog_host', (el) => { /* every new matching element */ });
@@ -119,7 +123,7 @@ Make `onDomChange` callbacks idempotent. They run (debounced) after DOM mutation
 Settings are stored in `chrome.storage.sync`, so they follow your Chrome profile:
 
 ```js
-{ siteOverrides: { "host": "on" | "off" }, features: { "id": true | false }, debug: false }
+{ siteOverrides: { "host": "on" | "off" }, features: { "id": true | false, "id.option": true | false }, debug: false }
 ```
 
 To turn on console logging, run this from the extension's service worker console:

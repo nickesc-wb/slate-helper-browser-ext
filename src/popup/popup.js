@@ -66,8 +66,16 @@ const reloadTab = (tabId) => {
     showReloadNote();
   });
 
-  // Feature toggles (global, not per-site)
-  for (const f of state.features) {
+  // Feature toggles (global, not per-site), grouped into sections. Options are
+  // stored as features['<feature>.<option>'].
+  const saveToggle = async (key, value) => {
+    const { features } = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+    features[key] = value;
+    await chrome.storage.sync.set({ features });
+    showReloadNote();
+  };
+
+  const renderFeature = (f) => {
     const li = document.createElement('li');
     li.innerHTML = `
       <label>
@@ -84,13 +92,42 @@ const reloadTab = (tabId) => {
     }
     const box = li.querySelector('input');
     box.checked = f.enabled;
-    box.addEventListener('change', async () => {
-      const { features } = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-      features[f.id] = box.checked;
-      await chrome.storage.sync.set({ features });
-      showReloadNote();
+
+    const optionBoxes = [];
+    if (f.options.length) {
+      const ul = document.createElement('ul');
+      ul.className = 'options';
+      for (const o of f.options) {
+        const optLi = document.createElement('li');
+        optLi.innerHTML = '<label><input type="checkbox"><span></span></label>';
+        optLi.querySelector('span').textContent = o.name;
+        const optBox = optLi.querySelector('input');
+        optBox.checked = o.enabled;
+        optBox.disabled = !f.enabled;
+        optBox.addEventListener('change', () => saveToggle(`${f.id}.${o.id}`, optBox.checked));
+        optionBoxes.push(optBox);
+        ul.appendChild(optLi);
+      }
+      li.appendChild(ul);
+    }
+
+    box.addEventListener('change', () => {
+      optionBoxes.forEach((b) => { b.disabled = !box.checked; });
+      saveToggle(f.id, box.checked);
     });
-    $('features').appendChild(li);
+    return li;
+  };
+
+  const groups = [...state.groups, 'Other'];
+  for (const group of groups) {
+    const inGroup = state.features.filter((f) => f.group === group);
+    if (!inGroup.length) continue;
+    const h = document.createElement('h3');
+    h.textContent = group;
+    $('features').appendChild(h);
+    const ul = document.createElement('ul');
+    inGroup.forEach((f) => ul.appendChild(renderFeature(f)));
+    $('features').appendChild(ul);
   }
 
   $('reload').addEventListener('click', () => reloadTab(tab.id));

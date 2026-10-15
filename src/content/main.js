@@ -20,14 +20,24 @@
 
   const features = SH.features.map((f) => ({
     id: f.id,
+    group: f.group || 'Other',
     name: f.name,
     description: f.description,
     enabled: settings.features[f.id] ?? f.defaultEnabled,
+    options: (f.options || []).map((o) => ({
+      id: o.id,
+      name: o.name,
+      enabled: settings.features[SH.optionKey(f.id, o.id)] ?? o.defaultEnabled,
+    })),
     appliesHere: f.areas === '*' || f.areas.includes(detection.area),
     running: false,
   }));
 
-  SH.state = { host, override, active, detection, features };
+  // { 'feature.option': true|false } for every option, for the page world.
+  const optionValues = {};
+  features.forEach((f) => f.options.forEach((o) => { optionValues[SH.optionKey(f.id, o.id)] = o.enabled; }));
+
+  SH.state = { host, override, active, detection, features, groups: SH.GROUPS };
   SH.log('detection', detection, 'override', override, 'active', active);
   chrome.runtime.sendMessage({ type: 'slate-helper:status', active }).catch(() => {});
 
@@ -44,14 +54,20 @@
     area: detection.area,
     debug: settings.debug,
     enabled: pageEnabled,
+    options: optionValues,
   }));
   document.dispatchEvent(new CustomEvent('slate-helper:activate'));
   features.forEach((info) => { if (pageEnabled.includes(info.id)) info.running = true; });
 
-  const ctx = { host, area: detection.area, settings };
   SH.features.forEach((feature, i) => {
     const info = features[i];
     if (feature.world === 'page' || !info.enabled || !info.appliesHere) return;
+    const ctx = {
+      host,
+      area: detection.area,
+      settings,
+      option: (optionId) => optionValues[SH.optionKey(feature.id, optionId)] !== false,
+    };
     const fail = (err) => console.error(`[Slate Helper] feature "${feature.id}" failed`, err);
     try {
       Promise.resolve(feature.init(ctx)).catch(fail); // init may be async

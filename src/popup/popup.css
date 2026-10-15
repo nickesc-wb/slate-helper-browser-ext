@@ -16,10 +16,17 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #
 .pill.on { background: #e3f3e4; color: #2e7d32; }
 ul { list-style: none; padding: 0; margin: 0; }
 #signals li { color: #555; font-size: 12px; }
-#features li { padding: 6px 0; border-top: 1px solid #eee; }
+#features > ul > li { padding: 6px 0; border-top: 1px solid #eee; }
 #features label { display: flex; gap: 8px; align-items: flex-start; }
 #features .desc { display: block; color: #777; font-size: 12px; }
 #features .na { color: #999; font-size: 11px; }
 details { margin: 6px 0; }
 summary { cursor: pointer; color: #555; }
 .note { margin-top: 10px; padding: 6px 8px; background: #fff8e1; border-radius: 4px; }
+body { max-height: 560px; overflow-y: auto; }
+#features h3 { font-size: 12px; margin: 12px 0 2px; color: #333; }
+#features .options { margin: 4px 0 0 22px; }
+#features .options li { padding: 2px 0; border: 0; font-size: 12px; }
+#features .options label { align-items: center; }
+#features .options input:disabled + span { color: #aaa; }
+#reload-note { position: sticky; bottom: 0; box-shadow: 0 -2px 6px rgba(0,0,0,.08); }

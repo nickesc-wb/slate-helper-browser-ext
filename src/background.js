@@ -1,28 +1,35 @@
 // Shows an "ON" badge on the toolbar icon for tabs where Slate Helper is active.
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'slate-helper:status' && sender.tab?.id != null) {
     const tabId = sender.tab.id;
     chrome.action.setBadgeText({ tabId, text: msg.active ? 'ON' : '' });
     chrome.action.setBadgeBackgroundColor({ tabId, color: '#2e7d32' });
-    if (IS_DEV) trackSlateTab(tabId, msg.active);
   }
-  if (msg?.type === 'slate-helper:dev-check' && sender.tab?.id != null) devCheck();
+  if (msg?.type === 'slate-helper:dev-check' && sender.tab?.id != null) devCheck(sender.tab.id);
+  if (msg?.type === 'slate-helper:hash-image') {
+    hashImage(msg.url).then(sendResponse, () => sendResponse(null));
+    return true; // respond asynchronously
+  }
 });
+
+// Content scripts can't read images from other origins (client favicons live
+// on Slate's CDN), so they ask the background for the image's SHA-256.
+async function hashImage(url) {
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  if (!blob.type.startsWith('image/')) return null;
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 // --- Dev auto-reload (unpacked installs only) ---------------------------------
 // Chrome only picks up content-script edits when the extension is reloaded. In
 // development, each Slate page load compares the extension's files against
 // what was loaded; if anything changed, the extension reloads itself and then
-// reloads every open Slate tab (a reload disconnects the old content scripts
-// in all of them, not just the tab that noticed).
+// reloads the tab that noticed. Other open tabs are left alone (they may have
+// unsaved work); the popup offers to reload them.
 const IS_DEV = !('update_url' in chrome.runtime.getManifest());
-
-async function trackSlateTab(tabId, active) {
-  const { slateTabs = {} } = await chrome.storage.session.get('slateTabs');
-  if (active) slateTabs[tabId] = true;
-  else delete slateTabs[tabId];
-  await chrome.storage.session.set({ slateTabs });
-}
 
 async function filesHash() {
   const m = chrome.runtime.getManifest();
@@ -34,21 +41,21 @@ async function filesHash() {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function devCheck() {
+async function devCheck(tabId) {
   if (!IS_DEV) return;
-  const { devHash, slateTabs = {} } = await chrome.storage.session.get(['devHash', 'slateTabs']);
+  const { devHash } = await chrome.storage.session.get('devHash');
   const now = await filesHash();
   if (!devHash) return chrome.storage.session.set({ devHash: now });
   if (now === devHash) return;
-  // Session storage is cleared by the reload, so hand the tab list over in local.
-  await chrome.storage.local.set({ devReloadTabs: Object.keys(slateTabs).map(Number) });
+  // Session storage is cleared by the reload, so hand the tab over in local.
+  await chrome.storage.local.set({ devReloadTab: tabId });
   chrome.runtime.reload();
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
   if (!IS_DEV) return;
   await chrome.storage.session.set({ devHash: await filesHash() });
-  const { devReloadTabs = [] } = await chrome.storage.local.get('devReloadTabs');
-  await chrome.storage.local.remove('devReloadTabs');
-  for (const tabId of devReloadTabs) chrome.tabs.reload(tabId).catch(() => {});
+  const { devReloadTab } = await chrome.storage.local.get('devReloadTab');
+  await chrome.storage.local.remove(['devReloadTab', 'devReloadTabs']);
+  if (devReloadTab != null) chrome.tabs.reload(devReloadTab).catch(() => {});
 });

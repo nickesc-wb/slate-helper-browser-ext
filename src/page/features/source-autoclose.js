@@ -77,9 +77,15 @@
   };
 
   SHP.registerFeature('source-autoclose', () => {
-    const keys = { name: 'slate-helper-autoclose', "'%'": percent, Backspace: backspace };
-    for (const open of Object.keys(PAIRS)) keys[`'${open}'`] = opening(open);
-    for (const close of Object.keys(CLOSERS)) keys[`'${close}'`] = closing(close);
+    const brackets = SHP.option('source-autoclose', 'brackets');
+    const quotes = SHP.option('source-autoclose', 'quotes');
+    const keys = { name: 'slate-helper-autoclose', Backspace: backspace };
+    if (brackets) {
+      keys["'%'"] = percent;
+      for (const open of '([{') keys[`'${open}'`] = opening(open);
+      for (const close of Object.keys(CLOSERS)) keys[`'${close}'`] = closing(close);
+    }
+    if (quotes) for (const q of QUOTES) keys[`'${q}'`] = opening(q);
 
     SHP.onCodeMirror((cm) => {
       cm.setOption('autoCloseBrackets', false); // ours replaces CodeMirror's addon

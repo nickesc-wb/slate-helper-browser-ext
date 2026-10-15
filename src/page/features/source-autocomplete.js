@@ -46,6 +46,7 @@
     'true', 'false', 'nil', 'null', 'empty', 'blank', 'limit', 'offset', 'reversed', 'forloop']);
 
   const Pos = (line, ch) => window.CodeMirror.Pos(line, ch);
+  const on = (option) => SHP.option('source-autocomplete', option);
 
   // --- Liquid helpers ----------------------------------------------------------
 
@@ -105,7 +106,7 @@
       cm.replaceRange(text + trail, data.from, data.to, 'complete');
       const cursor = Pos(data.from.line, data.from.ch + text.length);
 
-      if (BLOCK_KEYWORDS.includes(kw)) {
+      if (BLOCK_KEYWORDS.includes(kw) && on('liquidEndTags')) {
         // Add the end tag right after this tag's %}.
         const rest = cm.getLine(cursor.line).slice(cursor.ch);
         const close = rest.match(/-?%\}/);
@@ -131,6 +132,7 @@
     // Filter after "|"
     const filter = inner.match(/\|\s*(\w*)$/);
     if (filter) {
+      if (!on('liquidKeywords')) return null;
       const partial = filter[1];
       const list = FILTERS.filter((f) => f.startsWith(partial) && f !== partial);
       return { list, from: Pos(cur.line, cur.ch - partial.length), to: cur };
@@ -139,6 +141,7 @@
     // Keyword right after {%
     const keyword = isTag && inner.match(/^\s*-?\s*(\w*)$/);
     if (keyword) {
+      if (!on('liquidKeywords')) return null;
       const partial = keyword[1];
       const docBefore = cm.getRange(Pos(0, 0), Pos(cur.line, openAt));
       const open = openBlocks(docBefore);
@@ -150,7 +153,7 @@
 
     // Variable path
     const path = inner.match(/(^|[\s(=<>!,:])([A-Za-z_][\w.-]*|)$/);
-    if (!path) return null;
+    if (!path || !on('liquidVariables')) return null;
     const { list, partial } = variableSuggestions(collectVariables(cm.getValue()), path[2]);
     return { list, from: Pos(cur.line, cur.ch - partial.length), to: cur };
   };
@@ -187,6 +190,7 @@
     // Element name after "<"
     const tag = before.match(/<([\w-]*)$/);
     if (tag) {
+      if (!on('tags')) return null;
       const partial = tag[1].toLowerCase();
       const tags = Object.keys(window.CodeMirror.htmlSchema || {}).filter((t) => t.startsWith(partial) && t !== partial);
       return { list: tags.map(elementCompletion), from: Pos(cur.line, cur.ch - partial.length), to: cur };
@@ -194,7 +198,7 @@
 
     // Attribute snippet after a space inside an opening tag (not inside a value)
     const attr = before.match(/<([\w-]+)\s([^<>]*\s)?([\w-]*)$/);
-    if (attr && ((attr[2] || '').match(/"/g) || []).length % 2 === 0) {
+    if (attr && on('snippets') && ((attr[2] || '').match(/"/g) || []).length % 2 === 0) {
       const name = attr[1].toLowerCase();
       const partial = attr[3];
       const tagEnd = line.indexOf('>', cur.ch);

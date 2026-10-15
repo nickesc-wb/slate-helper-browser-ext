@@ -16,6 +16,7 @@
 
   SH.registerFeature({
     id: 'dblclick-picker',
+    group: 'Query builder',
     name: 'Double-click to pick',
     description: 'In the query builder, double-click an export or filter to select it and continue.',
     defaultEnabled: true,

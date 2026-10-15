@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "UI and UX improvements for Technolutions Slate, on any client's Slate instance.",
   "permissions": ["storage", "activeTab"],
+  "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "src/background.js"
   },
