@@ -85,6 +85,13 @@
   });
 
   page({
+    id: 'source-format',
+    group: 'Source view',
+    name: 'Format button',
+    description: 'A Format button in the editor toolbar (and Shift+Alt+F) tidies the HTML the same way reopening the editor does, without saving or closing.',
+  });
+
+  page({
     id: 'source-element-highlight',
     group: 'Source view',
     name: 'Highlight current element',

@@ -37,6 +37,7 @@
         "src/page/features/source-autoclose.js",
         "src/page/features/source-autocomplete.js",
         "src/page/features/source-find-replace.js",
+        "src/page/features/source-format.js",
         "src/page/features/source-element-highlight.js",
         "src/page/boot.js"
       ],
