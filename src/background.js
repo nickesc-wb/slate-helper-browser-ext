@@ -1,8 +1,9 @@
-// Shows an "ON" badge on the toolbar icon for tabs where Slate Helper is active.
+// Shows a small green dot on the toolbar icon for tabs where Slate Helper is
+// active. A single-space badge renders as a dot with no lettering.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'slate-helper:status' && sender.tab?.id != null) {
     const tabId = sender.tab.id;
-    chrome.action.setBadgeText({ tabId, text: msg.active ? 'ON' : '' });
+    chrome.action.setBadgeText({ tabId, text: msg.active ? ' ' : '' });
     chrome.action.setBadgeBackgroundColor({ tabId, color: '#2e7d32' });
   }
   if (msg?.type === 'slate-helper:dev-check' && sender.tab?.id != null) devCheck(sender.tab.id);

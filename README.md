@@ -48,7 +48,7 @@ A score of 5 or more counts as Slate. Detection also sets an **area** from the p
 
 **Per-site override:** if detection gets a site wrong, open the popup and set the site to *Always on* or *Always off*.
 
-When the extension is active, the toolbar icon shows an **ON** badge, and `<html>` gets the classes `slate-helper-active` and `slate-helper-area-<area>`.
+When the extension is active, the toolbar icon shows a small green dot, and `<html>` gets the classes `slate-helper-active` and `slate-helper-area-<area>`.
 
 ### Two worlds
 
