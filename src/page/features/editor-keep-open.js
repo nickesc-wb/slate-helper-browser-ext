@@ -5,7 +5,8 @@
 // parent.FW.Dialog.Unload() (closing the dialog) and then refreshes the saved
 // block on the page. For Save in a dialog with a WYSIWYG editor, we run the
 // same commit but skip that one Unload call, then flash "Saved ✓" on the
-// button. Save as Copy and other buttons are left alone.
+// button. Save as Copy and other buttons are left alone, and a "Save & Close"
+// button is added for the old behavior.
 (() => {
   const SHP = window.SlateHelperPage;
   const SAVED_LABEL = 'Saved ✓';
@@ -55,7 +56,28 @@
     });
   };
 
+  // "Save & Close" next to Save: Slate's original Save behavior. It calls the
+  // commit directly (no onclick attribute), so the click handler below leaves
+  // it alone and the dialog closes as usual.
+  const addSaveAndClose = (host) => {
+    const save = [...host.querySelectorAll('.action button')].find(isSaveButton);
+    if (!save || host.querySelector('.slate-helper-save-close')) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'slate-helper-save-close';
+    button.textContent = 'Save & Close';
+    button.addEventListener('click', () => {
+      if (window.FW.Validate(save)) window.FW.Lazy.Commit(save, { cmd: 'save' });
+    });
+    save.after(' ', button); // Slate separates its buttons with a space
+  };
+
   SHP.registerFeature('editor-keep-open', () => {
+    SHP.onCKEditor((editor) => {
+      const host = editor.container.$.closest('.dialog_host');
+      if (host) addSaveAndClose(host);
+    });
+
     // Capture phase on the document runs before the button's own onclick.
     document.addEventListener('click', (e) => {
       const button = e.target.closest?.('.dialog_host .action button');

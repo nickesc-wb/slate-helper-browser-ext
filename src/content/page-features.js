@@ -23,7 +23,7 @@
     id: 'editor-keep-open',
     group: 'Dialogs',
     name: 'Keep editor open after Save',
-    description: 'Save in a WYSIWYG editor dialog saves without closing it. Use Cancel or × to close.',
+    description: 'Save in a WYSIWYG editor dialog saves without closing it. Adds a Save & Close button for the old behavior.',
   });
 
   page({
