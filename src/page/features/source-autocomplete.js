@@ -7,6 +7,7 @@
 //  - Liquid filters after "|"
 //  - Liquid variables already used in this editor, one dotted segment at a
 //    time, including loop variables
+//  - CSS block snippets after "@" inside <style> (e.g. a 768px media query)
 (() => {
   const SHP = window.SlateHelperPage;
 
@@ -212,15 +213,47 @@
     return null;
   };
 
+  // --- CSS helpers -----------------------------------------------------------------
+
+  // Block snippets for <style>. "|" marks where the cursor goes; each line after
+  // the first gets the current line's indent.
+  const CSS_SNIPPETS = [
+    { label: '@media (min-width: 768px)', body: '@media (min-width: 768px) {\n  |\n}' },
+  ];
+
+  const cssBlockCompletion = ({ label, body }) => ({
+    text: label,
+    displayText: label,
+    hint(cm, data) {
+      const indent = SHP.cm.leadingWhitespace(cm.getLine(data.from.line));
+      const text = body.replace(/\n/g, `\n${indent}`);
+      const caret = text.indexOf('|');
+      const before = text.slice(0, caret).split('\n');
+      cm.replaceRange(text.replace('|', ''), data.from, data.to, 'complete');
+      cm.setCursor(Pos(data.from.line + before.length - 1,
+        (before.length === 1 ? data.from.ch : 0) + before[before.length - 1].length));
+    },
+  });
+
+  const cssHint = (cm, cur, line) => {
+    if (!on('cssSnippets')) return null;
+    const at = line.slice(0, cur.ch).match(/(^|[\s;{}])(@[\w-]*)$/);
+    if (!at) return null;
+    const typed = at[2];
+    const list = CSS_SNIPPETS.filter((s) => s.label.startsWith(typed) && s.label !== typed).map(cssBlockCompletion);
+    return { list, from: Pos(cur.line, cur.ch - typed.length), to: cur };
+  };
+
   // --- Wiring ----------------------------------------------------------------------
 
   const hint = (cm) => {
     const cur = cm.getCursor();
     const line = cm.getLine(cur.line);
     const ctx = SHP.cm.context(cm, cur);
-    const result = ctx === 'liquid' || /\{[{%][^}]*$/.test(line.slice(0, cur.ch))
-      ? liquidHint(cm, cur, line)
-      : htmlHint(cm, cur, line);
+    let result;
+    if (ctx === 'liquid' || /\{[{%][^}]*$/.test(line.slice(0, cur.ch))) result = liquidHint(cm, cur, line);
+    else if (ctx === 'css') result = cssHint(cm, cur, line);
+    else result = htmlHint(cm, cur, line);
     return result && result.list.length ? result : null;
   };
 
