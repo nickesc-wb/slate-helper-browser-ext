@@ -39,7 +39,8 @@
     }
   };
 
-  // A toolbar button cloned from CKEditor's own Source button, so it matches.
+  // A toolbar button cloned from CKEditor's own Source button, so it matches,
+  // placed after Find/Replace with the other code-editing tools.
   const addButton = (editor) => {
     const source = editor.container.$.querySelector('.cke_button__source');
     if (!source || editor.container.$.querySelector(`.${BUTTON_CLASS}`)) return;
@@ -62,7 +63,8 @@
       e.preventDefault();
       format(editor);
     });
-    source.after(button);
+    const anchor = editor.container.$.querySelector('.cke_button__replace') || source;
+    anchor.after(button);
 
     const updateState = () => {
       const enabled = editor.mode === 'source';
