@@ -16,7 +16,7 @@
           position: fixed;
           left: 8px;
           bottom: 8px;
-          z-index: 2147483000;
+          z-index: 900; /* below Slate dialogs (1000), so a maximized dialog covers it */
           padding: 3px 8px;
           border-radius: 10px;
           background: rgba(33, 33, 33, 0.85);
