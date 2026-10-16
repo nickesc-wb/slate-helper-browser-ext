@@ -15,9 +15,14 @@
   };
 
   // The element whose tag the cursor is on, or else the one it's inside.
+  // Right after a closing tag's ">" (e.g. </div>|) counts as being on that tag.
   const currentElement = (cm) => {
     const CM = window.CodeMirror;
     const pos = cm.getCursor();
+    if (/<\/[\w:-]+\s*>$/.test(cm.getLine(pos.line).slice(0, pos.ch))) {
+      const justClosed = CM.findMatchingTag(cm, { line: pos.line, ch: pos.ch - 1 });
+      if (justClosed) return justClosed;
+    }
     const onTag = CM.findMatchingTag(cm, pos);
     if (onTag) return onTag;
     return CM.findEnclosingTag(cm, pos);
