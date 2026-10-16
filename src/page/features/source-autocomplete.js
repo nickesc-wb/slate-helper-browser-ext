@@ -1,6 +1,7 @@
 // Source view autocomplete, using CodeMirror's show-hint dropdown (Up/Down to
 // move, Tab or Enter to accept, Esc to close). Suggests:
-//  - HTML element names after "<" (accepting adds the closing tag)
+//  - HTML element names after "<" (accepting adds the closing tag; <style>
+//    and <script> also get their type attribute)
 //  - attribute snippets after a space inside an opening tag
 //  - Liquid keywords inside {% %} (block keywords add their end tag; the end
 //    tag for the innermost unclosed block is ranked first)
@@ -13,6 +14,12 @@
 
   const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 
+  // Attributes added when a tag name is accepted: <sty → <style type="text/css">|</style>
+  const TAG_ATTRIBUTES = {
+    style: ' type="text/css"',
+    script: ' type="text/javascript"',
+  };
+
   // Built-in attribute snippets per tag. "|" marks where the cursor goes.
   const SNIPPETS = {
     a: ['href="|"', 'target="_blank"'],
@@ -23,6 +30,9 @@
     table: ['role="presentation" cellpadding="0" cellspacing="0" border="0"', 'width="100%"'],
     td: ['align="|"', 'valign="top"'],
   };
+  // Offered inside every opening tag (once you start typing the name), after
+  // that tag's own snippets.
+  const ANY_TAG_SNIPPETS = ['style="|"'];
 
   const BLOCK_KEYWORDS = ['if', 'unless', 'case', 'for', 'capture', 'comment', 'raw', 'tablerow'];
   const KEYWORDS = [
@@ -161,18 +171,21 @@
 
   // --- HTML helpers --------------------------------------------------------------
 
-  const elementCompletion = (tag) => ({
-    text: tag,
-    displayText: tag,
-    hint(cm, data) {
-      if (VOID_TAGS.has(tag)) {
-        cm.replaceRange(`${tag} />`, data.from, data.to, 'complete');
-        return;
-      }
-      cm.replaceRange(`${tag}></${tag}>`, data.from, data.to, 'complete');
-      cm.setCursor(Pos(data.from.line, data.from.ch + tag.length + 1));
-    },
-  });
+  const elementCompletion = (tag) => {
+    const open = tag + (TAG_ATTRIBUTES[tag] || '');
+    return {
+      text: open,
+      displayText: open,
+      hint(cm, data) {
+        if (VOID_TAGS.has(tag)) {
+          cm.replaceRange(`${open} />`, data.from, data.to, 'complete');
+          return;
+        }
+        cm.replaceRange(`${open}></${tag}>`, data.from, data.to, 'complete');
+        cm.setCursor(Pos(data.from.line, data.from.ch + open.length + 1));
+      },
+    };
+  };
 
   const snippetCompletion = (snippet) => ({
     text: snippet.replace('|', ''),
@@ -193,7 +206,7 @@
     if (tag) {
       if (!on('tags')) return null;
       const partial = tag[1].toLowerCase();
-      const tags = Object.keys(window.CodeMirror.htmlSchema || {}).filter((t) => t.startsWith(partial) && t !== partial);
+      const tags = Object.keys(window.CodeMirror.htmlSchema || {}).filter((t) => t.startsWith(partial) && (t !== partial || TAG_ATTRIBUTES[t]));
       return { list: tags.map(elementCompletion), from: Pos(cur.line, cur.ch - partial.length), to: cur };
     }
 
@@ -204,7 +217,9 @@
       const partial = attr[3];
       const tagEnd = line.indexOf('>', cur.ch);
       const tagText = line.slice(before.lastIndexOf('<'), tagEnd === -1 ? line.length : tagEnd);
-      const list = (SNIPPETS[name] || [])
+      // Every-tag snippets wait for a typed prefix, so a space in any tag
+      // doesn't pop up a list.
+      const list = [...(SNIPPETS[name] || []), ...(partial ? ANY_TAG_SNIPPETS : [])]
         .filter((s) => s.startsWith(partial))
         .filter((s) => !s.match(/[\w-]+(?==)/g).some((a) => new RegExp(`\\s${a}=`).test(tagText)))
         .map(snippetCompletion);
@@ -219,6 +234,9 @@
   // the first gets the current line's indent.
   const CSS_SNIPPETS = [
     { label: '@media (min-width: 768px)', body: '@media (min-width: 768px) {\n  |\n}' },
+    // 767.98px, not 768px, so it never overlaps the min-width query above (and
+    // still covers fractional widths like 767.5px on zoomed or HiDPI screens).
+    { label: '@media (max-width: 767.98px)', body: '@media (max-width: 767.98px) {\n  |\n}' },
   ];
 
   const cssBlockCompletion = ({ label, body }) => ({

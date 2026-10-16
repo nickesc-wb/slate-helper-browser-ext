@@ -73,7 +73,7 @@
       opt('liquidKeywords', 'Liquid keywords and filters'),
       opt('liquidEndTags', 'Add the end tag when accepting if, for, …'),
       opt('liquidVariables', 'Liquid variables used in this editor'),
-      opt('cssSnippets', 'CSS snippets in <style> (@media min-width 768px)'),
+      opt('cssSnippets', 'CSS snippets in <style> (768px @media queries)'),
     ],
   });
 
