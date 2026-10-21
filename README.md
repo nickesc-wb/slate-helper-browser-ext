@@ -2,23 +2,13 @@
 
 A Chrome extension (Manifest V3) that improves the UI and UX of Technolutions Slate. It runs on any client's Slate instance, whatever the domain.
 
-## Install (release)
+## Install
 
-1. Download `slate-helper-<version>.zip` from the repo's [Releases](https://github.com/nickesc-wb/slate-helper-browser-ext/releases) and unzip it somewhere it can stay
+1. Download `slate-helper-<version>.zip` from [Releases](https://github.com/nickesc-wb/slate-helper-browser-ext/releases) and unzip it somewhere it can stay (or, to work on it, clone this repo)
 2. Open `chrome://extensions` and turn on **Developer mode**
-3. Click **Load unpacked** and pick the unzipped folder
+3. Click **Load unpacked** and pick the folder
 
-Chrome won't install packaged extensions from outside the Chrome Web Store, so releases are loaded unpacked. They don't auto-update: to update, replace the folder's contents with the new release and click the reload button on `chrome://extensions`.
-
-## Install (development)
-
-1. Open `chrome://extensions`
-2. Turn on **Developer mode**
-3. Click **Load unpacked** and pick this folder
-
-There's no build step. The files are plain JS.
-
-**Auto-reload:** for unpacked installs, each time a Slate page loads, the extension checks whether its files changed since it was loaded. If they did, it reloads itself and then reloads that tab. Other open tabs are left alone (they might have unsaved work) and stay disconnected until refreshed; the popup offers a Reload button. So after editing, just reload a Slate page. If Chrome rejects a manifest change, the extension stops loading; fix it and use the reload button on `chrome://extensions`.
+Chrome won't install packaged extensions from outside the Chrome Web Store, so the extension is loaded unpacked and doesn't auto-update. To update, replace the folder's contents with the new release and click the reload button on `chrome://extensions`.
 
 ## Features
 
@@ -26,7 +16,6 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 
 | Feature | What it does |
 |---|---|
-| Instance badge | Corner badge with the hostname and Slate area |
 | Client favicon in header | The instance's favicon left of the Slate logo, in both the desktop and compact header (skipped if it's Slate's default icon) |
 | Double-click to pick | Query builder: double-click an export or filter to select it and continue |
 | Dialog size | Dialogs stay inside the window; editor dialogs open at 85% of the window height; drag any edge or corner to resize |
@@ -38,7 +27,10 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
 | Source view: highlight current element | Shades the element the cursor is in |
 
-## How it works
+<details>
+<summary><strong><h2>Development</h2></strong></summary>
+
+### How it works
 
 The content scripts load on every http/https page. They stay idle unless the page looks like Slate.
 
@@ -58,13 +50,16 @@ A score of 5 or more counts as Slate. Detection also sets an **area** from the p
 
 When the extension is active, the toolbar icon shows a small green dot, and `<html>` gets the classes `slate-helper-active` and `slate-helper-area-<area>`.
 
-### Two worlds
+**Auto-reload:** for unpacked installs, each time a Slate page loads, the extension checks whether its files changed since it was loaded. If they did, it reloads itself and then reloads that tab. Other open tabs are left alone (they might have unsaved work) and stay disconnected until refreshed; the popup offers a Reload button. So after editing, just reload a Slate page. If Chrome rejects a manifest change, the extension stops loading; fix it and use the reload button on `chrome://extensions`.
+
+
+#### Two worlds
 
 Content scripts normally run in an *isolated world*: they share the page's DOM but can't see its JavaScript objects. Features that only touch the DOM run there (`src/content/`). Features that need Slate's own objects (CKEditor, CodeMirror, `FW`) run in the page's *MAIN world* (`src/page/`).
 
 The isolated world owns detection and settings. Once it decides the page is Slate, it writes the enabled page-world feature ids to `<html data-slate-helper-config>` and fires `slate-helper:activate`; `src/page/runtime.js` picks that up and starts those features.
 
-## Layout
+### Layout
 
 ```
 manifest.json
@@ -85,7 +80,7 @@ src/
   popup/                       status, per-site override, feature toggles
 ```
 
-## Adding a feature
+### Adding a feature
 
 **DOM-only feature** — create `src/content/features/my-feature.js` and add it to the isolated-world `js` list in `manifest.json`, before `src/content/main.js`:
 
@@ -126,7 +121,7 @@ src/
 
 Make `onDomChange` callbacks idempotent. They run (debounced) after DOM mutations. Use timers rather than `requestAnimationFrame` for this kind of work: rAF doesn't run in hidden tabs.
 
-## Tests
+### Tests
 
 ```bash
 npm install
@@ -139,7 +134,7 @@ Tests use [Vitest](https://vitest.dev) with jsdom, a simulated browser page in N
 
 The tooling (`package.json`, `node_modules/`, `test/`) is for development only and isn't part of the released extension.
 
-## Releasing
+### Releasing
 
 Day-to-day work happens on `dev`. To release:
 
@@ -150,7 +145,7 @@ On every push to `main`, the Release workflow checks whether `v<version>` from `
 
 The Test workflow runs the tests on every push to `main` and `dev` and on pull requests.
 
-## Settings
+### Settings
 
 Settings are stored in `chrome.storage.sync`, so they follow your Chrome profile:
 
@@ -160,3 +155,5 @@ Settings are stored in `chrome.storage.sync`, so they follow your Chrome profile
 
 To turn on console logging, run this from the extension's service worker console:
 `chrome.storage.sync.set({ debug: true })`
+
+</details>
