@@ -1,0 +1,64 @@
+# On every push to main, if manifest.json has a version that hasn't been
+# released yet, tag the commit v<version> and publish a GitHub Release with the
+# extension zipped for "Load unpacked". Pushes that keep the same version do
+# nothing.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Two quick pushes shouldn't race to release the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for a new version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./manifest.json').version")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if gh release view "v${version}" > /dev/null 2>&1; then
+            echo "v${version} is already released; nothing to do."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Releasing v${version}."
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.version.outputs.new == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - if: steps.version.outputs.new == 'true'
+        run: npm ci
+      - if: steps.version.outputs.new == 'true'
+        run: npm test
+
+      # Only what Chrome needs: no tests, node_modules or dev config.
+      - name: Zip the extension
+        if: steps.version.outputs.new == 'true'
+        run: |
+          mkdir -p dist
+          zip -r "dist/slate-helper-${{ steps.version.outputs.version }}.zip" manifest.json icons src
+
+      - name: Publish the release
+        if: steps.version.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v${VERSION}" "dist/slate-helper-${VERSION}.zip" \
+            --target "${GITHUB_SHA}" --title "Slate Helper ${VERSION}" --generate-notes

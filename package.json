@@ -1,0 +1,15 @@
+{
+  "name": "slate-helper",
+  "private": true,
+  "type": "module",
+  "description": "Dev tooling for the Slate Helper Chrome extension. The extension itself has no build step.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "codemirror": "^5.65.21",
+    "jsdom": "^30.1.3",
+    "vitest": "^5.0.5"
+  }
+}

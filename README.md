@@ -2,6 +2,14 @@
 
 A Chrome extension (Manifest V3) that improves the UI and UX of Technolutions Slate. It runs on any client's Slate instance, whatever the domain.
 
+## Install (release)
+
+1. Download `slate-helper-<version>.zip` from the repo's [Releases](https://github.com/nickesc-wb/slate-helper-browser-ext/releases) and unzip it somewhere it can stay
+2. Open `chrome://extensions` and turn on **Developer mode**
+3. Click **Load unpacked** and pick the unzipped folder
+
+Chrome won't install packaged extensions from outside the Chrome Web Store, so releases are loaded unpacked. They don't auto-update: to update, replace the folder's contents with the new release and click the reload button on `chrome://extensions`.
+
 ## Install (development)
 
 1. Open `chrome://extensions`
@@ -117,6 +125,30 @@ src/
 ```
 
 Make `onDomChange` callbacks idempotent. They run (debounced) after DOM mutations. Use timers rather than `requestAnimationFrame` for this kind of work: rAF doesn't run in hidden tabs.
+
+## Tests
+
+```bash
+npm install
+npm test
+```
+
+Tests use [Vitest](https://vitest.dev) with jsdom, a simulated browser page in Node. Nothing runs against a real Slate instance. Each test loads the extension's scripts into the page the way Chrome does. Source-view features are tested against CodeMirror 5 from npm, set up like Slate's editor (htmlmixed with Liquid multiplexed in); see `test/helpers/codemirror.js`. In test strings, `‸` marks the cursor (`|` is Liquid's filter pipe).
+
+`test/manifest.test.js` checks that `manifest.json` lists every feature file in the right order and that each page feature has popup metadata in `src/content/page-features.js`.
+
+The tooling (`package.json`, `node_modules/`, `test/`) is for development only and isn't part of the released extension.
+
+## Releasing
+
+Day-to-day work happens on `dev`. To release:
+
+1. Bump `"version"` in `manifest.json` on `dev`
+2. Merge `dev` into `main` and push
+
+On every push to `main`, the Release workflow checks whether `v<version>` from `manifest.json` has been released yet. If it hasn't, it runs the tests, zips `manifest.json`, `icons/` and `src/`, tags the commit `v<version>`, and publishes a GitHub Release with the zip. A push to `main` without a version bump releases nothing. If the tests fail, nothing is released; fix them and push again.
+
+The Test workflow runs the tests on every push to `main` and `dev` and on pull requests.
 
 ## Settings
 

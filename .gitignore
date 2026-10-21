@@ -7,3 +7,7 @@ Thumbs.db
 .vscode/
 .idea/
 spec-convo.md
+
+# Dev tooling
+node_modules/
+dist/
