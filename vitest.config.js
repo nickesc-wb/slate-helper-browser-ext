@@ -5,5 +5,6 @@ export default defineConfig({
     environment: 'jsdom',
     environmentOptions: { jsdom: { url: 'https://apply.example.edu/' } },
     include: ['test/**/*.test.js'],
+    setupFiles: ['test/helpers/setup.js'],
   },
 });
