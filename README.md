@@ -27,8 +27,10 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
 | Source view: highlight current element | Shades the element the cursor is in |
 
+## Development
+
 <details>
-<summary><strong><h2>Development</h2></strong></summary>
+<summary>How it works, adding features, tests and releases</summary>
 
 ### How it works
 
