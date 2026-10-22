@@ -64,7 +64,10 @@
     if (!save || host.querySelector('.slate-helper-save-close')) return;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'slate-helper-save-close';
+    // Slate marks its primary button with a class (the bold styling), so move
+    // that from Save to Save & Close.
+    button.className = `${save.className} slate-helper-save-close`.trim();
+    save.className = '';
     button.textContent = 'Save & Close';
     button.addEventListener('click', () => {
       if (window.FW.Validate(save)) window.FW.Lazy.Commit(save, { cmd: 'save' });
