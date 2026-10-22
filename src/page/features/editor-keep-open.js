@@ -75,7 +75,21 @@
     save.before(button, ' '); // Slate separates its buttons with a space
   };
 
+  // Slate's Ctrl+S clicks the dialog's first button.default, which is now Save
+  // & Close. Send it to Save instead. CKEditor re-dispatches Ctrl+S from its
+  // iframe as a keydown on this document, so one listener covers both views.
+  const onCtrlS = (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.code !== 'KeyS') return;
+    const save = [...document.querySelectorAll('.dialog_host:not(.dialog_inactive) .action button')]
+      .find((b) => isSaveButton(b) && b.closest('.dialog_host').querySelector('.cke'));
+    if (!save) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    save.click();
+  };
+
   SHP.registerFeature('editor-keep-open', () => {
+    window.addEventListener('keydown', onCtrlS, true); // before Slate's document handler
     SHP.onCKEditor((editor) => {
       const host = editor.container.$.closest('.dialog_host');
       if (host) addSaveAndClose(host);
