@@ -25,7 +25,7 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Source view: auto-close pairs | `( [ { " '` auto-close; quotes only in code (tags, `<style>`, `<script>`, Liquid) |
 | Source view: autocomplete | HTML tags, attribute snippets, Liquid keywords, filters and variables |
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
-| Source view: highlight current element | Shades the element the cursor is in |
+| Source view: highlight current element | Shades the element the cursor is in; inside `<style>`, the innermost CSS rule (nested rules and `@media` blocks count separately) |
 | Source view: check Liquid tags | Underlines `{% if %}`, `{% for %}` etc. with no end tag (and their `{% elsif %}` / `{% else %}` / `{% when %}`), end tags with nothing to close, and `{% else %}` / `{% when %}` outside their block; hover for details |
 | Update notice | A notice in the bottom-right corner when a newer release is on GitHub, linking to it |
 

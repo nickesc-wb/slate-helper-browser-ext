@@ -95,7 +95,7 @@
     id: 'source-element-highlight',
     group: 'Source view',
     name: 'Highlight current element',
-    description: 'Shades the element the cursor is in, from its opening tag to its closing tag.',
+    description: 'Shades the element the cursor is in, from its opening tag to its closing tag. Inside <style>, shades the innermost CSS rule instead.',
   });
 
   page({
