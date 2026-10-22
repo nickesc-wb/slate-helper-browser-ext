@@ -47,6 +47,41 @@ const el = (tag, className, text) => {
   return node;
 };
 
+// --- Version and update check --------------------------------------------------
+// Same comparison as the update toast (src/content/features/update-toast.js).
+const isNewerVersion = (a, b) => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d > 0;
+  }
+  return false;
+};
+
+const installedVersion = chrome.runtime.getManifest().version;
+$('version').textContent = `v${installedVersion}`;
+$('check-updates').addEventListener('click', async () => {
+  const button = $('check-updates');
+  const result = $('update-result');
+  button.disabled = true;
+  button.textContent = 'Checking…';
+  result.replaceChildren();
+  const release = await chrome.runtime.sendMessage({ type: 'slate-helper:latest-release', fresh: true }).catch(() => null);
+  button.textContent = 'Check for updates';
+  button.disabled = false;
+  if (!release) {
+    result.textContent = "Couldn't reach GitHub";
+  } else if (isNewerVersion(release.version, installedVersion)) {
+    const link = el('a', null, `v${release.version} available`);
+    link.href = release.url;
+    link.target = '_blank';
+    result.append(link);
+  } else {
+    result.textContent = 'Up to date';
+  }
+});
+
 (async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (/^https?:/.test(tab.url || '')) $('host').textContent = new URL(tab.url).hostname;

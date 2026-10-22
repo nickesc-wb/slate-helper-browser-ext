@@ -8,7 +8,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true; // respond asynchronously
   }
   if (msg?.type === 'slate-helper:latest-release') {
-    latestRelease().then(sendResponse, () => sendResponse(null));
+    latestRelease(msg.fresh).then(sendResponse, () => sendResponse(null));
     return true;
   }
 });
@@ -65,13 +65,14 @@ async function hashImage(url) {
 
 // --- Latest release ----------------------------------------------------------
 // The newest GitHub release, for the update toast. Cached so page loads don't
-// run into GitHub's 60 requests/hour limit for unauthenticated calls.
+// run into GitHub's 60 requests/hour limit for unauthenticated calls. fresh
+// skips the cache (the popup's "Check for updates") and re-caches the result.
 const RELEASES_API = 'https://api.github.com/repos/nickesc-wb/slate-helper-browser-ext/releases/latest';
 const RELEASE_CHECK_MS = 60 * 60 * 1000;
 
-async function latestRelease() {
+async function latestRelease(fresh = false) {
   const { latestRelease: cached } = await chrome.storage.local.get('latestRelease');
-  if (cached && Date.now() - cached.checkedAt < RELEASE_CHECK_MS) return cached;
+  if (!fresh && cached && Date.now() - cached.checkedAt < RELEASE_CHECK_MS) return cached;
   const res = await fetch(RELEASES_API, { headers: { Accept: 'application/vnd.github+json' } });
   if (!res.ok) return cached || null;
   const release = await res.json();

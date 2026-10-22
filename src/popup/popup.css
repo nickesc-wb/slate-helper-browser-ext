@@ -290,6 +290,32 @@ main[hidden] { display: none; }
 .option input { margin: 1px 0 0; accent-color: var(--accent); cursor: pointer; }
 .option:has(input:disabled) { color: var(--faint); cursor: default; }
 
+/* --- Version ------------------------------------------------------------------ */
+
+.version-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 2px 14px 12px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--muted); }
+.link-btn:disabled { text-decoration: none; cursor: default; }
+.link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.version-row a { color: var(--accent); font-weight: 600; }
+
 /* --- Reload bar --------------------------------------------------------------- */
 
 .reload-bar {
