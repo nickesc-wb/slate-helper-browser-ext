@@ -31,7 +31,7 @@
   SH.getSettings = () => chrome.storage.sync.get(SH.DEFAULT_SETTINGS);
 
   // Popup section order. Features without a group go last.
-  SH.GROUPS = ['Client instance', 'Dialogs', 'Source view', 'Query builder'];
+  SH.GROUPS = ['Client instance', 'Dialogs', 'Source view', 'Query builder', 'Extension'];
 
   /** Settings key for a feature option: settings.features['<feature>.<option>']. */
   SH.optionKey = (featureId, optionId) => `${featureId}.${optionId}`;

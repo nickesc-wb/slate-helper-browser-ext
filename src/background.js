@@ -7,6 +7,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     hashImage(msg.url).then(sendResponse, () => sendResponse(null));
     return true; // respond asynchronously
   }
+  if (msg?.type === 'slate-helper:latest-release') {
+    latestRelease().then(sendResponse, () => sendResponse(null));
+    return true;
+  }
 });
 
 // --- Toolbar icon --------------------------------------------------------------
@@ -57,6 +61,27 @@ async function hashImage(url) {
   if (!blob.type.startsWith('image/')) return null;
   const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// --- Latest release ----------------------------------------------------------
+// The newest GitHub release, for the update toast. Cached so page loads don't
+// run into GitHub's 60 requests/hour limit for unauthenticated calls.
+const RELEASES_API = 'https://api.github.com/repos/nickesc-wb/slate-helper-browser-ext/releases/latest';
+const RELEASE_CHECK_MS = 60 * 60 * 1000;
+
+async function latestRelease() {
+  const { latestRelease: cached } = await chrome.storage.local.get('latestRelease');
+  if (cached && Date.now() - cached.checkedAt < RELEASE_CHECK_MS) return cached;
+  const res = await fetch(RELEASES_API, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!res.ok) return cached || null;
+  const release = await res.json();
+  const latest = {
+    version: release.tag_name.replace(/^v/, ''),
+    url: release.html_url,
+    checkedAt: Date.now(),
+  };
+  await chrome.storage.local.set({ latestRelease: latest });
+  return latest;
 }
 
 // --- Dev auto-reload (unpacked installs only) ---------------------------------

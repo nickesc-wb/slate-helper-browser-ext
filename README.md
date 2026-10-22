@@ -8,7 +8,7 @@ A Chrome extension (Manifest V3) that improves the UI and UX of Technolutions Sl
 2. Open `chrome://extensions` and turn on **Developer mode**
 3. Click **Load unpacked** and pick the folder
 
-Chrome won't install packaged extensions from outside the Chrome Web Store, so the extension is loaded unpacked and doesn't auto-update. To update, replace the folder's contents with the new release and click the reload button on `chrome://extensions`.
+Chrome won't install packaged extensions from outside the Chrome Web Store, so the extension is loaded unpacked and doesn't auto-update. When a new release is out, Slate pages show a notice in the bottom-right corner. To update, replace the folder's contents with the new release and click the reload button on `chrome://extensions`.
 
 ## Features
 
@@ -26,6 +26,7 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Source view: autocomplete | HTML tags, attribute snippets, Liquid keywords, filters and variables |
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
 | Source view: highlight current element | Shades the element the cursor is in |
+| Update notice | A notice in the bottom-right corner when a newer release is on GitHub, linking to it |
 
 ## Development
 
