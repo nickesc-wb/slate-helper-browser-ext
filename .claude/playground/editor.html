@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+  Source-view playground: a Slate-like CodeMirror 5 editor (htmlmixed + Liquid,
+  like test/helpers/codemirror.js) with the extension's MAIN-world scripts
+  loaded in manifest order and every page feature on with default options.
+  No CKEditor or FW, so dialog/toolbar features stay idle.
+
+  URL params:
+    ?only=source-indent,source-autoclose   enable just these page features
+    ?off=source-autocomplete               disable these
+    ?opt=source-indent.splitOnType:true    override options (comma-separated)
+
+  From the console / javascript_tool:
+    cm                       the editor
+    playground.set(text)     set the text; "‸" marks the cursor, "‸…‸" a selection
+    playground.show()        the text with "‸" at the cursor
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Slate Helper playground</title>
+<link rel="stylesheet" href="/node_modules/codemirror/lib/codemirror.css">
+<link rel="stylesheet" href="/node_modules/codemirror/addon/hint/show-hint.css">
+<style>
+  body { font: 14px sans-serif; margin: 16px; }
+  #features { color: #666; font-size: 12px; margin-bottom: 8px; }
+  .CodeMirror { border: 1px solid #ccc; height: calc(100vh - 80px); font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="features">Loading…</div>
+<textarea id="src"><table width="100%">
+  <tr>
+    <td>
+      <style type="text/css">
+        /* } not a brace */
+        .hero { background: #003366; color: #fff; }
+        .button,
+        .cta {
+          padding: 12px 24px;
+          content: "}";
+          color: {{ brand_color }};
+          &:hover {
+            opacity: 0.8;
+          }
+        }
+        @media (max-width: 768px) {
+          .hero {
+            padding: 8px;
+            .title {
+              font-size: 20px;
+            }
+          }
+
+          .footer { display: none; }
+        }
+      </style>
+      {% if first != empty %}
+        <p class="title">Hello {{ first | capitalize }},</p>
+      {% else %}
+        <p class="title">Hello,</p>
+      {% endif %}
+      <ul>
+        {% for item in items %}
+          <li><a href="{{ item.url }}">{{ item.name }}</a></li>
+        {% endfor %}
+      </ul>
+      <script>
+        function track(id) {
+          if (window.ga) { ga('send', 'event', 'cta', id); }
+        }
+      </script>
+    </td>
+  </tr>
+</table></textarea>
+<script src="/node_modules/codemirror/lib/codemirror.js"></script>
+<script src="/node_modules/codemirror/mode/xml/xml.js"></script>
+<script src="/node_modules/codemirror/mode/css/css.js"></script>
+<script src="/node_modules/codemirror/mode/javascript/javascript.js"></script>
+<script src="/node_modules/codemirror/mode/htmlmixed/htmlmixed.js"></script>
+<script src="/node_modules/codemirror/addon/mode/multiplex.js"></script>
+<script src="/node_modules/codemirror/addon/fold/xml-fold.js"></script>
+<script src="/node_modules/codemirror/addon/hint/show-hint.js"></script>
+<script src="/node_modules/codemirror/addon/hint/xml-hint.js"></script>
+<script src="/node_modules/codemirror/addon/hint/html-hint.js"></script>
+<script>
+  const liquidInner = { token: (stream) => { stream.next(); return 'liquid'; } };
+  CodeMirror.defineMode('liquid', (config) => CodeMirror.multiplexingMode(
+    CodeMirror.getMode(config, 'htmlmixed'),
+    { open: '{{', close: '}}', mode: liquidInner, delimStyle: 'liquid' },
+    { open: '{%', close: '%}', mode: liquidInner, delimStyle: 'liquid' },
+  ));
+  window.cm = CodeMirror.fromTextArea(document.getElementById('src'), { mode: 'liquid', lineNumbers: true, indentUnit: 2 });
+
+  // Cursor marker, as in the tests. Not "|": that's Liquid's filter pipe.
+  const CARET = '‸';
+  window.playground = {
+    set(value) {
+      const marks = [...value.matchAll(new RegExp(CARET, 'g'))].map((m) => m.index);
+      cm.setValue(value.replaceAll(CARET, ''));
+      if (marks.length === 1) cm.setCursor(cm.posFromIndex(marks[0]));
+      if (marks.length === 2) cm.setSelection(cm.posFromIndex(marks[0]), cm.posFromIndex(marks[1] - 1));
+      cm.focus();
+    },
+    show() {
+      const text = cm.getValue();
+      const from = cm.indexFromPos(cm.getCursor('from'));
+      const to = cm.indexFromPos(cm.getCursor('to'));
+      if (from === to) return text.slice(0, from) + CARET + text.slice(from);
+      return text.slice(0, from) + CARET + text.slice(from, to) + CARET + text.slice(to);
+    },
+  };
+
+  const load = (src) => new Promise((ok, fail) => {
+    const s = document.createElement('script');
+    s.src = `/${src}`;
+    s.onload = ok;
+    s.onerror = () => fail(new Error(`couldn't load ${src}`));
+    document.body.appendChild(s);
+  });
+
+  (async () => {
+    // Feature list and option defaults come from the popup metadata, like main.js.
+    await load('src/content/core.js');
+    await load('src/content/page-features.js');
+    const SH = window.SlateHelper;
+    const params = new URLSearchParams(location.search);
+    const list = (name) => (params.get(name) || '').split(',').filter(Boolean);
+    const pageIds = SH.features.filter((f) => f.world === 'page').map((f) => f.id);
+    const only = list('only');
+    const enabled = pageIds.filter((id) => (!only.length || only.includes(id)) && !list('off').includes(id));
+    const options = Object.fromEntries(SH.features.flatMap((f) =>
+      (f.options || []).map((o) => [SH.optionKey(f.id, o.id), o.defaultEnabled])));
+    for (const kv of list('opt')) {
+      const [key, value] = kv.split(':');
+      options[key] = value !== 'false';
+    }
+    document.documentElement.setAttribute('data-slate-helper-config',
+      JSON.stringify({ area: 'playground', debug: true, enabled, options }));
+
+    // MAIN-world scripts in manifest order; boot.js (last) starts the features.
+    const manifest = await (await fetch('/manifest.json')).json();
+    const main = manifest.content_scripts.find((c) => c.world === 'MAIN').js;
+    for (const src of main.filter((s) => !s.endsWith('probe-main.js'))) await load(src);
+    document.getElementById('features').textContent = `Page features on: ${enabled.join(', ')}`;
+  })().catch((err) => {
+    document.getElementById('features').textContent = String(err);
+    throw err;
+  });
+</script>
+</body>
+</html>
