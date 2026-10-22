@@ -1,7 +1,8 @@
 // Source view: underline Liquid block tags that don't pair up: an {% if %}
 // with no {% endif %}, an {% endfor %} with nothing to close, or an
-// {% else %} / {% when %} outside the block it belongs to. Hovering an
-// underline says what's wrong. Nothing stops a save; it's only a hint.
+// {% else %} / {% when %} outside the block it belongs to. An unclosed
+// block's {% elsif %} / {% else %} / {% when %} are underlined with it.
+// Hovering an underline says what's wrong. Nothing stops a save; it's only a hint.
 (() => {
   const SHP = window.SlateHelperPage;
   const MARK_CLASS = 'slate-helper-liquid-error';
@@ -25,12 +26,21 @@
    */
   const check = (text) => {
     const problems = [];
-    const stack = []; // { name, from, to }
+    const stack = []; // { name, from, to, branches }
+
+    // An unclosed block and its branch tags, with why: "has no {% endif %}".
+    const unclosed = (open, why) => {
+      problems.push({ ...open, message: `${tagText(open.name)} ${why}` });
+      for (const branch of open.branches) {
+        problems.push({ ...branch, message: `${tagText(branch.name)} belongs to ${tagText(open.name)}, which ${why}` });
+      }
+    };
+
     TAG.lastIndex = 0;
     let m;
     while ((m = TAG.exec(text))) {
       const name = m[1];
-      const tag = { name, from: m.index, to: m.index + m[0].length };
+      const tag = { name, from: m.index, to: m.index + m[0].length, branches: [] };
       const top = stack.at(-1);
 
       if (top && VERBATIM.includes(top.name)) {
@@ -42,7 +52,9 @@
       if (BLOCKS.includes(name)) {
         stack.push(tag);
       } else if (BRANCHES[name]) {
-        if (!top || !BRANCHES[name].includes(top.name)) {
+        if (top && BRANCHES[name].includes(top.name)) {
+          top.branches.push(tag);
+        } else {
           const where = BRANCHES[name].map(tagText).join(' or ');
           problems.push({ ...tag, message: `${tagText(name)} outside ${where}` });
         }
@@ -55,15 +67,11 @@
         }
         // Anything opened after the matching tag was never closed.
         for (const open of stack.splice(i)) {
-          if (open.name !== opener) {
-            problems.push({ ...open, message: `${tagText(open.name)} is not closed before ${tagText(name)}` });
-          }
+          if (open.name !== opener) unclosed(open, `is not closed before ${tagText(name)}`);
         }
       }
     }
-    for (const open of stack) {
-      problems.push({ ...open, message: `${tagText(open.name)} has no ${tagText(`end${open.name}`)}` });
-    }
+    for (const open of stack) unclosed(open, `has no ${tagText(`end${open.name}`)}`);
     return problems.sort((a, b) => a.from - b.from);
   };
 

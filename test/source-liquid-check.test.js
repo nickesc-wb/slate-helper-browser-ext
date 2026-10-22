@@ -30,6 +30,33 @@ describe('source-liquid-check', () => {
     expect(check('<p>{% if a %}x</p>')).toEqual([['{% if a %}', '{% if %} has no {% endif %}']]);
   });
 
+  it('underlines the branches of a block with no end tag', () => {
+    expect(check('{% if a %}x{% elsif b %}y{% else %}z')).toEqual([
+      ['{% if a %}', '{% if %} has no {% endif %}'],
+      ['{% elsif b %}', '{% elsif %} belongs to {% if %}, which has no {% endif %}'],
+      ['{% else %}', '{% else %} belongs to {% if %}, which has no {% endif %}'],
+    ]);
+    expect(check('{% case c %}{% when 1 %}a{% else %}b')).toEqual([
+      ['{% case c %}', '{% case %} has no {% endcase %}'],
+      ['{% when 1 %}', '{% when %} belongs to {% case %}, which has no {% endcase %}'],
+      ['{% else %}', '{% else %} belongs to {% case %}, which has no {% endcase %}'],
+    ]);
+  });
+
+  it('underlines the branches of a block left open inside another', () => {
+    expect(check('{% for i in l %}{% if i %}x{% else %}y{% endfor %}')).toEqual([
+      ['{% if i %}', '{% if %} is not closed before {% endfor %}'],
+      ['{% else %}', '{% else %} belongs to {% if %}, which is not closed before {% endfor %}'],
+    ]);
+  });
+
+  it('leaves the branches of a closed outer block alone', () => {
+    expect(check('{% if a %}{% for i in l %}x{% else %}y{% endfor %}{% else %}z')).toEqual([
+      ['{% if a %}', '{% if %} has no {% endif %}'],
+      ['{% else %}', '{% else %} belongs to {% if %}, which has no {% endif %}'],
+    ]);
+  });
+
   it('underlines an end tag with nothing to close', () => {
     expect(check('x{% endfor %}')).toEqual([['{% endfor %}', '{% endfor %} with no {% for %} to close']]);
   });
