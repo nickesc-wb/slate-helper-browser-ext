@@ -97,4 +97,11 @@
     name: 'Highlight current element',
     description: 'Shades the element the cursor is in, from its opening tag to its closing tag.',
   });
+
+  page({
+    id: 'source-liquid-check',
+    group: 'Source view',
+    name: 'Check Liquid tags',
+    description: 'Underlines Liquid block tags that don\'t pair up, like an {% if %} with no {% endif %}. Hover an underline for details.',
+  });
 })();

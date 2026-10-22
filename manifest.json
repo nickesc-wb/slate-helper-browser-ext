@@ -39,6 +39,7 @@
         "src/page/features/source-find-replace.js",
         "src/page/features/source-format.js",
         "src/page/features/source-element-highlight.js",
+        "src/page/features/source-liquid-check.js",
         "src/page/boot.js"
       ],
       "run_at": "document_idle",

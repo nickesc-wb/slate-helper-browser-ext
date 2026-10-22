@@ -26,6 +26,7 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Source view: autocomplete | HTML tags, attribute snippets, Liquid keywords, filters and variables |
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
 | Source view: highlight current element | Shades the element the cursor is in |
+| Source view: check Liquid tags | Underlines `{% if %}`, `{% for %}` etc. with no end tag, end tags with nothing to close, and `{% else %}` / `{% when %}` outside their block; hover for details |
 | Update notice | A notice in the bottom-right corner when a newer release is on GitHub, linking to it |
 
 ## Development
