@@ -53,6 +53,7 @@
         "src/content/features/instance-badge.js",
         "src/content/features/instance-favicon.js",
         "src/content/features/dblclick-picker.js",
+        "src/content/features/impersonate-pick.js",
         "src/content/features/update-toast.js",
         "src/content/page-features.js",
         "src/content/main.js"

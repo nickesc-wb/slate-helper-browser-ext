@@ -21,6 +21,7 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Dialog size | Dialogs stay inside the window; editor dialogs open at 85% of the window height; drag any edge or corner to resize |
 | Keep editor open after Save | Save / Ctrl+S in an editor dialog saves without closing it |
 | Link dialog shortcuts | "Open in new tab" button; Tab from the URL field opens the Target tab |
+| Impersonate on pick | Impersonate dialogs: picking a record from the lookup impersonates it, no need to press Impersonate or Ctrl+S |
 | Source view: indentation | Tab = 2 spaces, Backspace removes an indent level, Enter between tags splits and indents, pastes re-indent; turns off Slate's split-on-type for block tags |
 | Source view: auto-close pairs | `( [ { " '` auto-close; quotes only in code (tags, `<style>`, `<script>`, Liquid) |
 | Source view: autocomplete | HTML tags, attribute snippets, Liquid keywords, filters and variables |
