@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Slate Helper",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "UI and UX improvements for Technolutions Slate, on any client's Slate instance.",
   "icons": {
     "16": "icons/icon-16.png",
