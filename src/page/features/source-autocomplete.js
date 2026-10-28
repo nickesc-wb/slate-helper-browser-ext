@@ -9,6 +9,8 @@
 //  - Liquid variables already used in this editor, one dotted segment at a
 //    time, including loop variables
 //  - CSS block snippets after "@" inside <style> (e.g. a 768px media query)
+//  - CSS properties, values, pseudo-classes etc. inside <style>, with their
+//    docs beside the dropdown (VS Code's CSS service, src/vendor/)
 (() => {
   const SHP = window.SlateHelperPage;
 
@@ -253,13 +255,59 @@
     },
   });
 
+  // A completion from VS Code's CSS service. Its insert text can hold snippet
+  // fields ("color: $0;"): the cursor goes to the first one. Accepting a
+  // property opens the list again for its values.
+  const cssServiceCompletion = (item, from, to) => ({
+    text: item.label,
+    displayText: item.label,
+    docs: item.documentation,
+    hint(cm) {
+      const raw = item.textEdit?.newText ?? item.insertText ?? item.label;
+      let caret = -1;
+      const text = raw.replace(/\$\{\d+(?::([^}]*))?\}|\$\d+/g, (m, value = '', offset) => {
+        if (caret === -1) caret = offset;
+        return value;
+      });
+      cm.replaceRange(text, from, to, 'complete');
+      const start = cm.indexFromPos(from);
+      cm.setCursor(cm.posFromIndex(start + (caret === -1 ? text.length : caret)));
+      if (item.command?.command === 'editor.action.triggerSuggest') {
+        setTimeout(() => cm.showHint({ hint, completeSingle: false }), 0);
+      }
+    },
+  });
+
+  // Property names, values, pseudo-classes etc. from VS Code's CSS service.
+  // Opens once something is typed, or right after a ":".
+  const cssServiceHint = (cm, cur) => {
+    const tools = SHP.cm.tools;
+    if (!tools || !on('cssProperties')) return null;
+    const text = cm.getValue();
+    const index = cm.indexFromPos(cur);
+    const region = SHP.cm.regions(text).find((r) => r.lang === 'css' && r.from <= index && index <= r.to);
+    if (!region) return null;
+    const doc = tools.TextDocument.create('slate.css', 'css', 1, SHP.cm.embed(SHP.cm.maskLiquid(text), [region]));
+    const { items } = tools.css.doComplete(doc, doc.positionAt(index), tools.css.parseStylesheet(doc));
+    const range = items.find((i) => i.textEdit?.range)?.textEdit.range;
+    const from = range ? Pos(range.start.line, range.start.character) : cur;
+    const typed = cm.getRange(from, cur).toLowerCase();
+    if (!typed && !/:\s*$/.test(cm.getRange(Pos(cur.line, 0), from))) return null;
+    const list = items
+      .filter((i) => i.label.toLowerCase().startsWith(typed) && i.label.toLowerCase() !== typed)
+      .sort((a, b) => (a.sortText ?? a.label).localeCompare(b.sortText ?? b.label))
+      .map((i) => cssServiceCompletion(i, from, cur));
+    return { list, from, to: cur };
+  };
+
   const cssHint = (cm, cur, line) => {
-    if (!on('cssSnippets')) return null;
     const at = line.slice(0, cur.ch).match(/(^|[\s;{}])(@[\w-]*)$/);
-    if (!at) return null;
-    const typed = at[2];
-    const list = CSS_SNIPPETS.filter((s) => s.label.startsWith(typed) && s.label !== typed).map(cssBlockCompletion);
-    return { list, from: Pos(cur.line, cur.ch - typed.length), to: cur };
+    if (at && on('cssSnippets')) {
+      const typed = at[2];
+      const list = CSS_SNIPPETS.filter((s) => s.label.startsWith(typed) && s.label !== typed).map(cssBlockCompletion);
+      if (list.length) return { list, from: Pos(cur.line, cur.ch - typed.length), to: cur };
+    }
+    return cssServiceHint(cm, cur);
   };
 
   // --- Wiring ----------------------------------------------------------------------
@@ -272,13 +320,35 @@
     if (ctx === 'liquid' || /\{[{%][^}]*$/.test(line.slice(0, cur.ch))) result = liquidHint(cm, cur, line);
     else if (ctx === 'css') result = cssHint(cm, cur, line);
     else result = htmlHint(cm, cur, line);
-    return result && result.list.length ? result : null;
+    if (!result || !result.list.length) return null;
+    showDocsForSelection(result);
+    return result;
+  };
+
+  // Show the highlighted suggestion's docs (CSS service ones have them) next
+  // to the dropdown, compact or not as the Hover docs options say.
+  const docsHtml = (docs) => (typeof docs === 'string'
+    ? `<p>${SHP.cm.escapeHtml(docs)}</p>`
+    : SHP.cm.docsHtml(docs, SHP.cm.docsSettings()));
+  const showDocsForSelection = (result) => {
+    if (!result.list.some((c) => c.docs)) return;
+    const CM = window.CodeMirror;
+    CM.on(result, 'select', (completion, el) => {
+      if (!completion.docs) return SHP.cm.hideTooltip();
+      const list = el.parentNode.getBoundingClientRect();
+      const item = el.getBoundingClientRect();
+      SHP.cm.showTooltip(`<section>${docsHtml(completion.docs)}</section>`,
+        { x: list.right + 4, top: item.top, bottom: item.bottom }, 'right', { sticky: true });
+    });
+    CM.on(result, 'close', SHP.cm.hideTooltip);
   };
 
   SHP.autocompleteHint = hint; // for debugging from the console
 
   SHP.registerFeature('source-autocomplete', () => {
     SHP.onCodeMirror((cm) => {
+      if (on('cssProperties')) SHP.cm.loadTools();
+
       // Not 'inputRead': that skips characters other key handlers insert
       // (e.g. auto-closed {{ }}). Check once the typing operation has
       // finished and the cursor has settled.

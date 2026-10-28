@@ -24,9 +24,11 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Impersonate on pick | Impersonate dialogs: picking a record from the lookup impersonates it, no need to press Impersonate or Ctrl+S |
 | Source view: indentation | Tab = 2 spaces, Backspace removes an indent level, Enter between tags splits and indents, pastes re-indent; turns off Slate's split-on-type for block tags |
 | Source view: auto-close pairs | `( [ { " '` auto-close; quotes only in code (tags, `<style>`, `<script>`, Liquid) |
-| Source view: autocomplete | HTML tags, attribute snippets, Liquid keywords, filters and variables |
+| Source view: autocomplete | HTML tags, attribute snippets, Liquid keywords, filters and variables; in `<style>`, CSS properties and values with their MDN docs beside the list |
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
 | Source view: highlight current element | Shades the element the cursor is in; inside `<style>`, the innermost CSS rule (nested rules and `@media` blocks count separately) |
+| Source view: lint | Underlines HTML tags that don't pair up, duplicate attributes and empty `src` (HTMLHint), CSS syntax errors, unknown properties and empty rules in `<style>` (VS Code's CSS checks), and JavaScript errors in `<script>` (JSHint); hover for details. Liquid is skipped |
+| Source view: hover docs | Rest the mouse on an HTML tag or attribute, or a CSS property or value, for its MDN docs, shown just above the line. Compact by default (first sentence, support status and MDN link; the corner chevron expands and collapses the rest) or verbose; description, browser support (Baseline), CSS syntax, selector specificity and links can each be hidden. The suggestion list's docs follow the same settings |
 | Source view: check Liquid tags | Underlines `{% if %}`, `{% for %}` etc. with no end tag (and their `{% elsif %}` / `{% else %}` / `{% when %}`), end tags with nothing to close, and `{% else %}` / `{% when %}` outside their block; hover for details |
 | Update notice | A notice in the bottom-right corner when a newer release is on GitHub, linking to it |
 
@@ -64,6 +66,12 @@ Content scripts normally run in an *isolated world*: they share the page's DOM b
 
 The isolated world owns detection and settings. Once it decides the page is Slate, it writes the enabled page-world feature ids to `<html data-slate-helper-config>` and fires `slate-helper:activate`; `src/page/runtime.js` picks that up and starts those features.
 
+#### On-demand libraries
+
+Lint, hover docs and CSS autocomplete use VS Code's CSS and HTML language services (the same MDN-derived data VS Code shows), HTMLHint and JSHint. Together they're about 2 MB, too much to load into every page, so they're bundled into `src/vendor/source-tools.js` and loaded only when a page feature asks: `SHP.load('source-tools')` fires `slate-helper:load`, `main.js` (isolated world) checks the name against `SH.VENDOR_SCRIPTS` and asks the background, which injects the file into that frame's MAIN world with `chrome.scripting` (hence the `scripting` permission). The script hands its exports over with `SHP.provide`. Features call `SHP.cm.loadTools()` when the first editor opens; `SHP.cm` also has the helpers that give the tools Liquid-masked, same-length copies of the template.
+
+The bundle is built by `tools/build-vendor.mjs` (`npm run vendor`) and committed, so the extension itself still has no build step. Rebuild it after upgrading any of those packages.
+
 ### Layout
 
 ```
@@ -78,11 +86,13 @@ src/
     page-features.js           popup/settings metadata for the page-world features
     main.js                    entry point; detection, starts features, hands off to page world (loads last)
   page/                        MAIN world
-    runtime.js                 SlateHelperPage namespace, element watcher, activation
-    cm-utils.js                CodeMirror/CKEditor helpers
+    runtime.js                 SlateHelperPage namespace, element watcher, activation, on-demand loading
+    cm-utils.js                CodeMirror/CKEditor helpers, Liquid masking, hover tooltip
     features/                  features that use CKEditor / CodeMirror / FW
     boot.js                    starts the page runtime (loads last)
   popup/                       status, per-site override, feature toggles
+  vendor/source-tools.js       generated bundle of the language tools, loaded on demand
+tools/                         build script for src/vendor/ (dev only)
 ```
 
 ### Adding a feature
@@ -133,11 +143,11 @@ npm install
 npm test
 ```
 
-Tests use [Vitest](https://vitest.dev) with jsdom, a simulated browser page in Node. Nothing runs against a real Slate instance. Each test loads the extension's scripts into the page the way Chrome does. Source-view features are tested against CodeMirror 5 from npm, set up like Slate's editor (htmlmixed with Liquid multiplexed in); see `test/helpers/codemirror.js`. In test strings, `‸` marks the cursor (`|` is Liquid's filter pipe).
+Tests use [Vitest](https://vitest.dev) with jsdom, a simulated browser page in Node. Nothing runs against a real Slate instance. Each test loads the extension's scripts into the page the way Chrome does. Source-view features are tested against CodeMirror 5 from npm, set up like Slate's editor (htmlmixed with Liquid multiplexed in); see `test/helpers/codemirror.js` (`provideSourceTools()` hands the page the vendor bundle, as the background would). In test strings, `‸` marks the cursor (`|` is Liquid's filter pipe).
 
 `test/manifest.test.js` checks that `manifest.json` lists every feature file in the right order and that each page feature has popup metadata in `src/content/page-features.js`.
 
-The tooling (`package.json`, `node_modules/`, `test/`) is for development only and isn't part of the released extension.
+The tooling (`package.json`, `node_modules/`, `test/`, `tools/`) is for development only and isn't part of the released extension.
 
 ### Releasing
 

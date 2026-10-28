@@ -38,6 +38,7 @@
         .button,
         .cta {
           padding: 12px 24px;
+          colr: red;
           content: "}";
           color: {{ brand_color }};
           &:hover {
@@ -137,6 +138,11 @@
     }
     document.documentElement.setAttribute('data-slate-helper-config',
       JSON.stringify({ area: 'playground', debug: true, enabled, options }));
+
+    // On-demand scripts (SHP.load): in Chrome the background injects them.
+    document.addEventListener('slate-helper:load', (e) => {
+      if (SH.VENDOR_SCRIPTS.includes(e.detail)) load(`src/vendor/${e.detail}.js`);
+    });
 
     // MAIN-world scripts in manifest order; boot.js (last) starts the features.
     const manifest = await (await fetch('/manifest.json')).json();

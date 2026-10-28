@@ -9,7 +9,7 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "src/background.js"
@@ -39,6 +39,8 @@
         "src/page/features/source-find-replace.js",
         "src/page/features/source-format.js",
         "src/page/features/source-element-highlight.js",
+        "src/page/features/source-lint.js",
+        "src/page/features/source-docs.js",
         "src/page/features/source-liquid-check.js",
         "src/page/boot.js"
       ],

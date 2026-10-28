@@ -33,6 +33,10 @@
   // Popup section order. Features without a group go last.
   SH.GROUPS = ['Client instance', 'Dialogs', 'Source view', 'Query builder', 'Extension'];
 
+  // Libraries in src/vendor/ that page features may load on demand (SHP.load).
+  // Keep in sync with VENDOR_SCRIPTS in background.js.
+  SH.VENDOR_SCRIPTS = ['source-tools'];
+
   /** Settings key for a feature option: settings.features['<feature>.<option>']. */
   SH.optionKey = (featureId, optionId) => `${featureId}.${optionId}`;
 

@@ -58,6 +58,14 @@ describe('content entry point', () => {
     expect(pageConfig().enabled).toEqual([]);
   });
 
+  it('asks the background to inject allowed on-demand scripts', async () => {
+    await run();
+    document.dispatchEvent(new CustomEvent('slate-helper:load', { detail: 'source-tools' }));
+    document.dispatchEvent(new CustomEvent('slate-helper:load', { detail: '../popup/popup' }));
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'slate-helper:inject', name: 'source-tools' });
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalledWith({ type: 'slate-helper:inject', name: '../popup/popup' });
+  });
+
   it('does nothing on a site turned off in the popup', async () => {
     const state = await run({ siteOverrides: { [location.hostname]: 'off' } });
     expect(state.active).toBe(false);

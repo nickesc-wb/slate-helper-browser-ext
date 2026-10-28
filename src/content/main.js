@@ -46,6 +46,13 @@
   chrome.runtime.sendMessage({ type: 'slate-helper:dev-check' }).catch(() => {});
   document.documentElement.classList.add('slate-helper-active', `slate-helper-area-${detection.area}`);
 
+  // Page features ask for big libraries on demand (SHP.load in runtime.js);
+  // the background injects them into this tab's MAIN world.
+  document.addEventListener('slate-helper:load', (e) => {
+    if (!SH.VENDOR_SCRIPTS.includes(e.detail)) return;
+    chrome.runtime.sendMessage({ type: 'slate-helper:inject', name: e.detail }).catch(() => {});
+  });
+
   // Hand the enabled page-world features over to src/page/runtime.js.
   const pageEnabled = SH.features
     .filter((f, i) => f.world === 'page' && features[i].enabled && features[i].appliesHere)

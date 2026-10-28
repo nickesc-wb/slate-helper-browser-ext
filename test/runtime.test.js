@@ -16,6 +16,21 @@ describe('page runtime', () => {
     SHP = window.SlateHelperPage;
   });
 
+  it('loads on-demand scripts through the isolated world, asking once', async () => {
+    const asked = [];
+    document.addEventListener('slate-helper:load', (e) => asked.push(e.detail));
+    const first = SHP.load('source-tools');
+    SHP.load('source-tools');
+    expect(asked).toEqual(['source-tools']);
+    SHP.provide('source-tools', { ok: true });
+    expect(await first).toEqual({ ok: true });
+  });
+
+  it('resolves a load whose script arrived first', async () => {
+    SHP.provide('source-tools', 42);
+    expect(await SHP.load('source-tools')).toBe(42);
+  });
+
   it('starts only the enabled features', () => {
     const a = vi.fn();
     const b = vi.fn();

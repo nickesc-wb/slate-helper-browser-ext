@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { setupEditor, show } from './helpers/codemirror.js';
+import { provideSourceTools, setupEditor, show } from './helpers/codemirror.js';
+import { sleep } from './helpers/load.js';
 
 const editor = (value, options) => setupEditor(['source-autocomplete'], value, options);
 
@@ -103,5 +104,64 @@ describe('source-autocomplete: CSS', () => {
     expect(labels(cm)).toEqual(['@media (min-width: 768px)', '@media (max-width: 767.98px)']);
     accept(cm, '@media (min-width: 768px)');
     expect(show(cm)).toBe('<style>\n  @media (min-width: 768px) {\n    ‸\n  }\n</style>');
+  });
+
+  // Property and value suggestions come from VS Code's CSS service.
+  const cssEditor = async (value, options) => {
+    const cm = editor(value, options);
+    provideSourceTools();
+    await sleep(0);
+    return cm;
+  };
+
+  it('suggests properties as you type, with docs', async () => {
+    const cm = await cssEditor('<style>\n  .a { backg‸ }\n</style>');
+    expect(labels(cm)).toContain('background-color');
+    expect(hints(cm).list.find((c) => c.displayText === 'background-color').docs.value).toContain('MDN Reference');
+  });
+
+  it('accepting a property adds the colon and semicolon and puts the cursor between', async () => {
+    const cm = await cssEditor('<style>\n  .a { backg‸ }\n</style>');
+    accept(cm, 'background-color');
+    expect(show(cm)).toBe('<style>\n  .a { background-color: ‸; }\n</style>');
+  });
+
+  it('suggests values right after the colon', async () => {
+    const cm = await cssEditor('<style>\n  .a { display: ‸ }\n</style>');
+    expect(labels(cm)).toEqual(expect.arrayContaining(['block', 'flex', 'none']));
+    accept(cm, 'flex');
+    expect(show(cm)).toBe('<style>\n  .a { display: flex‸ }\n</style>');
+  });
+
+  it('does not open on whitespace alone, or for a finished word', async () => {
+    expect(labels(await cssEditor('<style>\n  .a { color: red; ‸ }\n</style>'))).toEqual([]);
+    expect(labels(await cssEditor('<style>\n  .a { display: block‸ }\n</style>'))).not.toContain('block');
+  });
+
+  it('works around Liquid in the same rule', async () => {
+    const cm = await cssEditor('<style>\n  .a { color: {{ c }}; backg‸ }\n</style>');
+    expect(labels(cm)).toContain('background-color');
+  });
+
+  // The docs beside the list, as show-hint shows them when an item is highlighted.
+  const docsShownFor = (cm, label) => {
+    const data = hints(cm);
+    const list = document.createElement('ul');
+    const item = list.appendChild(document.createElement('li'));
+    document.body.appendChild(list);
+    window.CodeMirror.signal(data, 'select', data.list.find((c) => c.displayText === label), item);
+    return document.querySelector('.slate-helper-tooltip').innerHTML;
+  };
+
+  it('shows docs beside the list, compact or verbose as the Hover docs options say', async () => {
+    expect(docsShownFor(await cssEditor('<style>\n  .a { backg‸ }\n</style>'), 'background-color'))
+      .toContain('slate-helper-tooltip-compact');
+    const verbose = await cssEditor('<style>\n  .a { backg‸ }\n</style>', { 'source-docs.compact': false });
+    expect(docsShownFor(verbose, 'background-color')).not.toContain('slate-helper-tooltip-compact');
+  });
+
+  it('respects the cssProperties option', async () => {
+    const cm = await cssEditor('<style>\n  .a { backg‸ }\n</style>', { 'source-autocomplete.cssProperties': false });
+    expect(labels(cm)).toEqual([]);
   });
 });

@@ -7,6 +7,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     hashImage(msg.url).then(sendResponse, () => sendResponse(null));
     return true; // respond asynchronously
   }
+  if (msg?.type === 'slate-helper:inject' && sender.tab?.id != null) injectVendor(sender, msg.name);
   if (msg?.type === 'slate-helper:latest-release') {
     latestRelease(msg.fresh).then(sendResponse, () => sendResponse(null));
     return true;
@@ -63,6 +64,21 @@ async function hashImage(url) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// --- On-demand page scripts ------------------------------------------------------
+// Big libraries the page features load only when needed (SHP.load in
+// src/page/runtime.js), injected into the asking frame's MAIN world. Keep in
+// sync with SH.VENDOR_SCRIPTS in src/content/core.js.
+const VENDOR_SCRIPTS = ['source-tools'];
+
+function injectVendor(sender, name) {
+  if (!VENDOR_SCRIPTS.includes(name)) return;
+  chrome.scripting.executeScript({
+    target: { tabId: sender.tab.id, frameIds: [sender.frameId] },
+    files: [`src/vendor/${name}.js`],
+    world: 'MAIN',
+  }).catch((err) => console.warn('[Slate Helper] could not load', name, err));
+}
+
 // --- Latest release ----------------------------------------------------------
 // The newest GitHub release, for the update toast. Cached so page loads don't
 // run into GitHub's 60 requests/hour limit for unauthenticated calls. fresh
@@ -95,7 +111,7 @@ const IS_DEV = !('update_url' in chrome.runtime.getManifest());
 
 async function filesHash() {
   const m = chrome.runtime.getManifest();
-  const files = new Set(['manifest.json', m.background.service_worker]);
+  const files = new Set(['manifest.json', m.background.service_worker, ...VENDOR_SCRIPTS.map((n) => `src/vendor/${n}.js`)]);
   for (const cs of m.content_scripts) (cs.js || []).concat(cs.css || []).forEach((f) => files.add(f));
   let text = '';
   for (const f of files) text += f + (await (await fetch(chrome.runtime.getURL(f))).text());

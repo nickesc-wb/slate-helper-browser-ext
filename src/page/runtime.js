@@ -68,6 +68,31 @@
     scan();
   };
 
+  // --- Scripts loaded on demand ------------------------------------------------
+  // Big libraries (src/vendor/) aren't content scripts, so they don't load into
+  // every page. SHP.load(name) asks the isolated world (main.js) to have
+  // src/vendor/<name>.js injected into this page; that script then calls
+  // SHP.provide(name, value), which resolves the promise.
+  const loads = {};
+  const pending = (name) => {
+    if (!loads[name]) {
+      let resolve;
+      loads[name] = { promise: new Promise((r) => { resolve = r; }), resolve, requested: false };
+    }
+    return loads[name];
+  };
+
+  SHP.provide = (name, value) => pending(name).resolve(value);
+
+  SHP.load = (name) => {
+    const entry = pending(name);
+    if (!entry.requested) {
+      entry.requested = true;
+      document.dispatchEvent(new CustomEvent('slate-helper:load', { detail: name }));
+    }
+    return entry.promise;
+  };
+
   /** Run cb(cm) for every CodeMirror editor (Slate creates one each time source view opens). */
   SHP.onCodeMirror = (cb) => SHP.onAdded('.CodeMirror', (el) => cb(el.CodeMirror), (el) => !!el.CodeMirror);
 

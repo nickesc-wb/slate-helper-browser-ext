@@ -73,6 +73,7 @@
       opt('liquidKeywords', 'Liquid keywords and filters'),
       opt('liquidEndTags', 'Add the end tag when accepting if, for, …'),
       opt('liquidVariables', 'Liquid variables used in this editor'),
+      opt('cssProperties', 'CSS properties and values in <style>, with docs'),
       opt('cssSnippets', 'CSS snippets in <style> (768px @media queries)'),
     ],
   });
@@ -96,6 +97,35 @@
     group: 'Source view',
     name: 'Highlight current element',
     description: 'Shades the element the cursor is in, from its opening tag to its closing tag. Inside <style>, shades the innermost CSS rule instead.',
+  });
+
+  page({
+    id: 'source-lint',
+    group: 'Source view',
+    name: 'Lint HTML, CSS and JavaScript',
+    description: 'Underlines problems: HTML tags that don\'t pair up, CSS syntax errors and unknown properties, JavaScript syntax errors. Hover an underline for details. Liquid is skipped.',
+    options: [
+      opt('html', 'HTML (HTMLHint)'),
+      opt('css', 'CSS in <style> (VS Code\'s checks)'),
+      opt('js', 'JavaScript in <script> (JSHint)'),
+    ],
+  });
+
+  page({
+    id: 'source-docs',
+    group: 'Source view',
+    name: 'Hover docs',
+    description: 'Rest the mouse on an HTML tag or attribute, or a CSS property or value, to see its MDN description, browser support and a link to MDN.',
+    options: [
+      opt('html', 'HTML tags and attributes'),
+      opt('css', 'CSS in <style>'),
+      opt('compact', 'Compact: first sentence; the corner chevron shows the rest (also beside the suggestion list)'),
+      opt('description', 'Description'),
+      opt('support', 'Browser support (Baseline)'),
+      opt('syntax', 'CSS syntax'),
+      opt('selector', 'CSS selector specificity'),
+      opt('links', 'Links to MDN and other references'),
+    ],
   });
 
   page({

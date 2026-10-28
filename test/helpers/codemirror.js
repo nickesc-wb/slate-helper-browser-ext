@@ -70,6 +70,25 @@ export const setupEditor = (features, value, options = {}, cmOptions = {}) => {
   return cm;
 };
 
+// src/vendor/source-tools.js is big, so it's evaluated once per test file and
+// its tools are handed to each new page runtime.
+let sourceTools = null;
+
+/**
+ * Give the page runtime the language tools, as the background would inject
+ * them after SHP.load('source-tools'). Features pick them up asynchronously:
+ * await sleep(0) before checking.
+ */
+export const provideSourceTools = () => {
+  if (!sourceTools) {
+    const SHP = window.SlateHelperPage;
+    window.SlateHelperPage = { provide: (_name, tools) => { sourceTools = tools; } };
+    loadScripts('src/vendor/source-tools.js');
+    window.SlateHelperPage = SHP;
+  }
+  window.SlateHelperPage.provide('source-tools', sourceTools);
+};
+
 // What CodeMirror does with keys no handler takes.
 const DEFAULTS = {
   Backspace: (cm) => cm.execCommand('delCharBefore'),
