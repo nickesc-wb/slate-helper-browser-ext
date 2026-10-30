@@ -7,26 +7,72 @@
 // same commit but skip that one Unload call, then flash "Saved ✓" on the
 // button. Save as Copy and other buttons are left alone, and a "Save & Close"
 // button is added for the old behavior.
+//
+// A new record's dialog posts without an id, so every Save would create another
+// record. For a new portal part the response renames the placeholder named by
+// the form's div parameter to the saved part (data-id), so after the first save
+// the dialog is pointed at that part. If the new record can't be found, the
+// dialog closes like Slate's own Save.
 (() => {
   const SHP = window.SlateHelperPage;
   const SAVED_LABEL = 'Saved ✓';
 
   let keepOpen = false;
+  // Slate keeps the options object a dialog was loaded with and reads its
+  // cancel handler when the dialog is cancelled, so remember it per dialog.
+  const dialogOptions = new WeakMap();
 
-  const patchUnload = () => {
-    const FW = window.FW;
-    if (!FW?.Dialog?.Unload || FW.Dialog.Unload.slateHelperPatched) return;
-    const original = FW.Dialog.Unload;
-    const patched = function (...args) {
-      if (keepOpen) {
-        keepOpen = false;
-        SHP.log('editor-keep-open: skipped dialog close after save');
-        return undefined;
-      }
-      return original.apply(this, args);
-    };
-    patched.slateHelperPatched = true;
-    FW.Dialog.Unload = patched;
+  const patchDialog = () => {
+    const dialog = window.FW?.Dialog;
+    if (dialog?.Unload && !dialog.Unload.slateHelperPatched) {
+      const original = dialog.Unload;
+      const patched = function (...args) {
+        if (keepOpen) {
+          keepOpen = false;
+          SHP.log('editor-keep-open: skipped dialog close after save');
+          return undefined;
+        }
+        return original.apply(this, args);
+      };
+      patched.slateHelperPatched = true;
+      dialog.Unload = patched;
+    }
+    if (dialog?.Load && !dialog.Load.slateHelperPatched) {
+      const original = dialog.Load;
+      const patched = function (el, options, ...rest) {
+        options ??= {}; // what Slate does too, but now it's an object we can see
+        const node = el?.[0] ?? el; // a jQuery object or an element
+        if (node) dialogOptions.set(node, options);
+        return original.call(this, el, options, ...rest);
+      };
+      patched.slateHelperPatched = true;
+      dialog.Load = patched;
+    }
+  };
+
+  // Slate's dialog URLs are relative ("widget/html?cmd=edit_part&id=…&div=…").
+  const query = (url) => new URLSearchParams((url || '').split('?')[1] || '');
+  const withParams = (url, values) => {
+    const [path, search = ''] = url.split('?');
+    const params = new URLSearchParams(search);
+    for (const [key, value] of Object.entries(values)) params.set(key, value);
+    return `${path}?${params}`;
+  };
+
+  // Points a new record's dialog at the record its first save created, the way
+  // Slate opens an existing part: id and div in the URL, and Cancel just closes
+  // (a new part's cancel handler removes it from the page).
+  const adoptSavedRecord = (form, placeholder) => {
+    const id = placeholder?.getAttribute('data-id');
+    const dialog = form.closest('.dialog');
+    const options = dialogOptions.get(dialog);
+    if (!id || !options) return false;
+    const values = { id, div: placeholder.id };
+    form.setAttribute('action', withParams(form.getAttribute('action'), values));
+    if (dialog.hasAttribute('data-href')) dialog.setAttribute('data-href', withParams(dialog.getAttribute('data-href'), values));
+    options.cancel = true;
+    SHP.log('editor-keep-open: dialog now edits saved record', id);
+    return true;
   };
 
   const isSaveButton = (button) =>
@@ -41,7 +87,11 @@
   const save = (button) => {
     const FW = window.FW;
     if (!FW.Validate(button)) return;
-    patchUnload();
+    patchDialog();
+    const form = button.closest('form');
+    const params = query(form?.getAttribute('action'));
+    const isNew = !!form && !params.get('id');
+    const placeholder = isNew && params.get('div') ? document.getElementById(params.get('div')) : null;
     keepOpen = true;
     FW.Lazy.Commit(button, { cmd: 'save' }, {
       complete() {
@@ -50,7 +100,12 @@
         // leak into the next Cancel/close.
         const closedSkipped = !keepOpen;
         keepOpen = false;
-        if (closedSkipped && button.isConnected) flashSaved(button);
+        if (!closedSkipped) return;
+        if (isNew && !adoptSavedRecord(form, placeholder)) {
+          FW.Dialog.Unload(); // another Save would create another record
+          return;
+        }
+        if (button.isConnected) flashSaved(button);
       },
       error() { keepOpen = false; },
     });
@@ -89,6 +144,7 @@
   };
 
   SHP.registerFeature('editor-keep-open', () => {
+    patchDialog(); // before any dialog loads, so its options are remembered
     window.addEventListener('keydown', onCtrlS, true); // before Slate's document handler
     SHP.onCKEditor((editor) => {
       const host = editor.container.$.closest('.dialog_host');
