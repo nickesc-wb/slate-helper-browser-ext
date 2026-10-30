@@ -153,11 +153,11 @@ describe('source-autocomplete: CSS', () => {
     return document.querySelector('.slate-helper-tooltip').innerHTML;
   };
 
-  it('shows docs beside the list, compact or verbose as the Hover docs options say', async () => {
-    expect(docsShownFor(await cssEditor('<style>\n  .a { backg‸ }\n</style>'), 'background-color'))
-      .toContain('slate-helper-tooltip-compact');
-    const verbose = await cssEditor('<style>\n  .a { backg‸ }\n</style>', { 'source-docs.compact': false });
-    expect(docsShownFor(verbose, 'background-color')).not.toContain('slate-helper-tooltip-compact');
+  it('shows docs beside the list at the level the Hover docs options say', async () => {
+    const shown = (html) => html.match(/<div class="slate-helper-docs-level" data-level="(\w+)">/)[1];
+    expect(shown(docsShownFor(await cssEditor('<style>\n  .a { backg‸ }\n</style>'), 'background-color'))).toBe('standard');
+    const compact = await cssEditor('<style>\n  .a { backg‸ }\n</style>', { 'source-docs.view': 'compact' });
+    expect(shown(docsShownFor(compact, 'background-color'))).toBe('compact');
   });
 
   it('respects the cssProperties option', async () => {

@@ -58,6 +58,17 @@ describe('content entry point', () => {
     expect(pageConfig().enabled).toEqual([]);
   });
 
+  it('passes choice options as their value, falling back to the default for unknown values', async () => {
+    await run();
+    expect(pageConfig().options['source-docs.view']).toBe('standard');
+    await run({ features: { 'source-docs.view': 'verbose' } });
+    expect(pageConfig().options['source-docs.view']).toBe('verbose');
+    const state = await run({ features: { 'source-docs.view': 'gone' } });
+    expect(pageConfig().options['source-docs.view']).toBe('standard');
+    const view = state.features.find((f) => f.id === 'source-docs').options.find((o) => o.id === 'view');
+    expect(view.choices.map((c) => c.value)).toEqual(['compact', 'standard', 'verbose']);
+  });
+
   it('asks the background to inject allowed on-demand scripts', async () => {
     await run();
     document.dispatchEvent(new CustomEvent('slate-helper:load', { detail: 'source-tools' }));

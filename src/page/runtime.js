@@ -14,6 +14,9 @@
   /** Whether a feature option (sub-toggle in the popup) is on. */
   SHP.option = (featureId, optionId) => SHP.options?.[`${featureId}.${optionId}`] !== false;
 
+  /** The value picked for a feature's choice option (a select in the popup). */
+  SHP.optionValue = (featureId, optionId) => SHP.options?.[`${featureId}.${optionId}`];
+
   SHP.log = (...args) => {
     if (SHP.debug) console.log('[Slate Helper]', ...args);
   };

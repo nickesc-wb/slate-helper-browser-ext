@@ -289,6 +289,9 @@ main[hidden] { display: none; }
 }
 .option input { margin: 1px 0 0; accent-color: var(--accent); cursor: pointer; }
 .option:has(input:disabled) { color: var(--faint); cursor: default; }
+.option-choice { align-items: center; justify-content: space-between; }
+.option select { font: inherit; color: inherit; cursor: pointer; }
+.option:has(select:disabled) { color: var(--faint); cursor: default; }
 
 /* --- Version ------------------------------------------------------------------ */
 

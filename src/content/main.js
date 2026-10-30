@@ -24,18 +24,20 @@
     name: f.name,
     description: f.description,
     enabled: settings.features[f.id] ?? f.defaultEnabled,
-    options: (f.options || []).map((o) => ({
-      id: o.id,
-      name: o.name,
-      enabled: settings.features[SH.optionKey(f.id, o.id)] ?? o.defaultEnabled,
-    })),
+    options: (f.options || []).map((o) => {
+      const saved = settings.features[SH.optionKey(f.id, o.id)];
+      if (!o.choices) return { id: o.id, name: o.name, enabled: saved ?? o.defaultEnabled };
+      // A choice saved by an older version may not exist any more.
+      const value = o.choices.some((c) => c.value === saved) ? saved : o.defaultValue;
+      return { id: o.id, name: o.name, choices: o.choices, value };
+    }),
     appliesHere: f.areas === '*' || f.areas.includes(detection.area),
     running: false,
   }));
 
-  // { 'feature.option': true|false } for every option, for the page world.
+  // { 'feature.option': true|false|'choice' } for every option, for the page world.
   const optionValues = {};
-  features.forEach((f) => f.options.forEach((o) => { optionValues[SH.optionKey(f.id, o.id)] = o.enabled; }));
+  features.forEach((f) => f.options.forEach((o) => { optionValues[SH.optionKey(f.id, o.id)] = o.choices ? o.value : o.enabled; }));
 
   SH.state = { host, override, active, detection, features, groups: SH.GROUPS };
   SH.log('detection', detection, 'override', override, 'active', active);

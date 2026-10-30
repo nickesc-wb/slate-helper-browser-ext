@@ -21,8 +21,10 @@
    *   areas:          '*' or any of ['admin', 'portal', 'apply', 'other']
    *   init(ctx):      called once when the page is a Slate page
    *   group:          popup section heading
-   *   options:        optional sub-toggles: [{ id, name, defaultEnabled }];
-   *                   read with ctx.option(id)
+   *   options:        optional sub-toggles: [{ id, name, defaultEnabled }],
+   *                   or choices shown as a select:
+   *                   [{ id, name, choices: [{ value, label }], defaultValue }];
+   *                   read with ctx.option(id) (toggles) / SHP.optionValue (page)
    *   world:          'page' for features whose code runs in the MAIN world
    *                   (src/page/features/); those have no init here
    */

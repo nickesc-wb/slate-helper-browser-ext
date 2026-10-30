@@ -2,9 +2,9 @@
 // value, selector or at-rule, to see its description from MDN: what it does,
 // browser support (Baseline) and a link to the MDN page. The docs come from
 // VS Code's HTML and CSS language services (src/vendor/source-tools.js,
-// loaded when the first editor opens). Options pick which parts show, and
-// whether it opens compact (first sentence; a chevron shows the rest). The
-// suggestion list's docs follow the same options.
+// loaded when the first editor opens). Options pick which parts show and how
+// much detail it opens with (compact, standard or verbose; up/down buttons in
+// the corner step between them). The suggestion list's docs follow the same options.
 (() => {
   const SHP = window.SlateHelperPage;
   const on = (option) => SHP.option('source-docs', option);

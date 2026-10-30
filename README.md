@@ -28,7 +28,7 @@ All are on by default and can be switched off in the toolbar popup, grouped by s
 | Source view: find & replace | Find/Replace toolbar buttons work in source view; Ctrl+H replaces |
 | Source view: highlight current element | Shades the element the cursor is in; inside `<style>`, the innermost CSS rule (nested rules and `@media` blocks count separately) |
 | Source view: lint | Underlines HTML tags that don't pair up, duplicate attributes and empty `src` (HTMLHint), CSS syntax errors, unknown properties and empty rules in `<style>` (VS Code's CSS checks), and JavaScript errors in `<script>` (JSHint); hover for details. Liquid is skipped |
-| Source view: hover docs | Rest the mouse on an HTML tag or attribute, or a CSS property or value, for its MDN docs, shown just above the line. Compact by default (first sentence, support status and MDN link; the corner chevron expands and collapses the rest) or verbose; description, browser support (Baseline), CSS syntax, selector specificity and links can each be hidden. The suggestion list's docs follow the same settings |
+| Source view: hover docs | Rest the mouse on an HTML tag or attribute, or a CSS property or value, for its MDN docs, shown just above the line. Three detail levels: compact (first sentence, support status and MDN link), standard (compact plus the CSS syntax line; the default) and verbose (everything); up/down buttons in the corner step between the levels a box has (up for more detail, verbose at the top). Description, browser support (Baseline), CSS syntax, selector specificity and links can each be hidden. The suggestion list's docs follow the same settings |
 | Source view: check Liquid tags | Underlines `{% if %}`, `{% for %}` etc. with no end tag (and their `{% elsif %}` / `{% else %}` / `{% when %}`), end tags with nothing to close, and `{% else %}` / `{% when %}` outside their block; hover for details |
 | Update notice | A notice in the bottom-right corner when a newer release is on GitHub, linking to it |
 
@@ -109,7 +109,10 @@ tools/                         build script for src/vendor/ (dev only)
     description: 'What it does, shown in the popup.',
     defaultEnabled: true,
     areas: ['admin'],          // or '*'
-    options: [{ id: 'part', name: 'One part of it', defaultEnabled: true }],
+    options: [               // checkboxes, or a select when it has choices
+      { id: 'part', name: 'One part of it', defaultEnabled: true },
+      { id: 'size', name: 'Size', choices: [{ value: 's', label: 'Small' }, { value: 'l', label: 'Large' }], defaultValue: 's' },
+    ],
     init(ctx) {                // ctx: { host, area, settings, option(id) }; may be async
       if (!ctx.option('part')) return;
       SH.injectStyle('my-feature', `/* css */`);
@@ -165,7 +168,7 @@ The Test workflow runs the tests on every push to `main` and `dev` and on pull r
 Settings are stored in `chrome.storage.sync`, so they follow your Chrome profile:
 
 ```js
-{ siteOverrides: { "host": "on" | "off" }, features: { "id": true | false, "id.option": true | false }, debug: false }
+{ siteOverrides: { "host": "on" | "off" }, features: { "id": true | false, "id.option": true | false | "choice value" }, debug: false }
 ```
 
 To turn on console logging, run this from the extension's service worker console:

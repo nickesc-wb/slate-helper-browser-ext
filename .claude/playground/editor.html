@@ -8,7 +8,8 @@
   URL params:
     ?only=source-indent,source-autoclose   enable just these page features
     ?off=source-autocomplete               disable these
-    ?opt=source-indent.splitOnType:true    override options (comma-separated)
+    ?opt=source-indent.splitOnType:true    override options (comma-separated;
+                                           choices take their value: source-docs.view:verbose)
 
   From the console / javascript_tool:
     cm                       the editor
@@ -131,10 +132,10 @@
     const only = list('only');
     const enabled = pageIds.filter((id) => (!only.length || only.includes(id)) && !list('off').includes(id));
     const options = Object.fromEntries(SH.features.flatMap((f) =>
-      (f.options || []).map((o) => [SH.optionKey(f.id, o.id), o.defaultEnabled])));
+      (f.options || []).map((o) => [SH.optionKey(f.id, o.id), o.choices ? o.defaultValue : o.defaultEnabled])));
     for (const kv of list('opt')) {
       const [key, value] = kv.split(':');
-      options[key] = value !== 'false';
+      options[key] = value === 'true' || value === 'false' ? value === 'true' : value;
     }
     document.documentElement.setAttribute('data-slate-helper-config',
       JSON.stringify({ area: 'playground', debug: true, enabled, options }));

@@ -125,7 +125,6 @@
   //   links        MDN and other references
   const DOC_PARTS = ['description', 'selector', 'support', 'syntax', 'links'];
   const LINKS_ONLY = /^\[[^\]]+\]\([^)]*\)(\s*\|\s*\[[^\]]+\]\([^)]*\))*\s*$/;
-  const FIRST_LINK = /\[[^\]]+\]\([^)]*\)/;
 
   const docParts = (contents) => {
     const parts = Object.fromEntries(DOC_PARTS.map((p) => [p, []]));
@@ -155,51 +154,75 @@
 
   /** The Hover docs feature's view options, used for every docs view (hover and suggestion list). */
   const docsSettings = () => ({
-    compact: SHP.option('source-docs', 'compact'),
+    level: SHP.optionValue('source-docs', 'view') ?? 'standard',
     show: Object.fromEntries(DOC_PARTS.map((p) => [p, SHP.option('source-docs', p)])),
   });
 
-  const CHEVRON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">'
-    + '<path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // Detail levels, least to most:
+  //   compact   the first sentence, then a line with the support status and MDN link
+  //   standard  compact plus the CSS syntax line
+  //   verbose   everything: full description, selector details, syntax, every link
+  // A box without a syntax line has no separate compact level (it would look
+  // the same as standard), and one with nothing more to say has no verbose.
+  const LEVELS = ['compact', 'standard', 'verbose'];
+
+  /** The index in levels (names, least detail first) to show for the wanted level. */
+  const pickLevel = (levels, wanted) => {
+    const rank = LEVELS.indexOf(wanted);
+    let pick = 0;
+    levels.forEach((name, i) => { if (LEVELS.indexOf(name) <= rank) pick = i; });
+    return pick;
+  };
+
+  const chevron = (d) => '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">'
+    + `<path d="${d}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  // Up raises the detail level (verbose is the top), down lowers it.
+  const STEPS = '<span class="slate-helper-docs-steps">'
+    + `<button type="button" class="slate-helper-docs-more" aria-label="Show more">${chevron('M4 10l4-4 4 4')}</button>`
+    + `<button type="button" class="slate-helper-docs-less" aria-label="Show less">${chevron('M4 6l4 4 4-4')}</button>`
+    + '</span>';
 
   /**
-   * HTML for a hover's contents. show: { part: false } hides parts. compact:
-   * the first sentence, a short support status and the MDN link, with a
-   * chevron in the corner that toggles the full view (when there's more to see).
+   * HTML for a hover's contents, opening at level (see LEVELS). show:
+   * { part: false } hides parts. When the box has more than one level, each is
+   * a .slate-helper-docs-level and up (more) / down (less) buttons in the
+   * corner step between them (the tooltip wires them up). Every level uses the same text
+   * styles; they differ only in what they include.
    */
-  const docsHtml = (contents, { compact = false, show = {} } = {}) => {
+  const docsHtml = (contents, { level = 'verbose', show = {} } = {}) => {
     const on = (part) => show[part] !== false;
     const parts = docParts(contents);
-    const full = [
-      ...(on('description') ? parts.description.map(markdown) : []),
-      ...(on('selector') ? parts.selector : []),
-      ...(on('support') ? parts.support : []),
-      ...(on('syntax') ? parts.syntax : []),
-      ...(on('links') ? parts.links.map(markdown) : []),
-    ].join('');
-    if (!compact) return full;
-
     const description = on('description') ? parts.description : [];
     const first = description[0] ? firstSentence(description[0].trim()) : '';
-    const meta = [];
+    const syntax = on('syntax') ? parts.syntax.join('') : '';
+    const selector = on('selector') ? parts.selector.join('') : '';
+    const links = on('links') ? parts.links.flatMap((block) => block.match(/\[[^\]]+\]\([^)]*\)/g)) : [];
+    let status = '';
     if (on('support') && parts.support[0]) {
       // "<img> <i>Widely available across major browsers (Baseline since 2015)</i>"
       const icon = parts.support[0].match(/<img[^>]*>/)?.[0] ?? '';
-      const status = parts.support[0].match(/<i>([^<]*)<\/i>/)?.[1] ?? '';
-      meta.push(`<span data-slate-helper-hint="${status}">${icon}${status.replace(/ across major browsers.*/, '')}</span>`);
+      const text = parts.support[0].match(/<i>([^<]*)<\/i>/)?.[1] ?? '';
+      status = `<span data-slate-helper-hint="${text}">${icon}${text.replace(/ across major browsers.*/, '')}</span>`;
     }
-    const link = on('links') && parts.links[0]?.match(FIRST_LINK)?.[0];
-    if (link) meta.push(inline(link));
-    const more = (description.length > 1 || first.length < (description[0]?.trim().length ?? 0))
-      || (on('selector') && parts.selector.length > 0)
-      || (on('syntax') && parts.syntax.length > 0)
-      || (on('links') && (parts.links.length > 1 || parts.links[0]?.includes('|')));
-    if (!first && !meta.length) return full;
-    const summary = (first ? `<p>${inline(first)}</p>` : '')
-      + (meta.length ? `<p class="slate-helper-docs-meta">${meta.join(' · ')}</p>` : '');
-    if (!more) return summary;
-    return `<div class="slate-helper-tooltip-compact">${summary}</div><div class="slate-helper-tooltip-full">${full}</div>`
-      + `<button type="button" class="slate-helper-tooltip-more" aria-label="Show more" aria-expanded="false">${CHEVRON}</button>`;
+    const meta = (allLinks) => {
+      const items = [status, ...(allLinks ? links : links.slice(0, 1)).map(inline)].filter(Boolean);
+      return items.length ? `<p class="slate-helper-docs-meta">${items.join(' · ')}</p>` : '';
+    };
+
+    const summary = first ? `<p>${inline(first)}</p>` : '';
+    const levels = [];
+    if (summary || meta(false)) {
+      levels.push({ name: syntax ? 'compact' : 'standard', html: summary + meta(false) });
+      if (syntax) levels.push({ name: 'standard', html: summary + syntax + meta(false) });
+    }
+    const more = description.length > 1 || first.length < (description[0]?.trim().length ?? 0)
+      || selector || links.length > 1 || !levels.length;
+    if (more) levels.push({ name: 'verbose', html: description.map(markdown).join('') + selector + syntax + meta(true) });
+    if (levels.length === 1) return levels[0].html;
+
+    const active = pickLevel(levels.map((l) => l.name), level);
+    return levels.map((l, i) => `<div class="slate-helper-docs-level" data-level="${l.name}"${i === active ? '' : ' hidden'}>${l.html}</div>`)
+      .join('') + STEPS;
   };
 
   // --- Tooltip -----------------------------------------------------------------------
@@ -208,8 +231,8 @@
   let tooltip = null;
   let hint = null; // small label for [data-slate-helper-hint] inside the tooltip
   let placement = null; // { anchor, side, below, sticky } of what's shown, for re-placing after a toggle
-  let expandedBefore = false; // for sticky tooltips: the last one was left expanded
-  let toggledAt = null; // where the pointer was when the chevron was last clicked
+  let stickyLevel = null; // for sticky tooltips: the level the last one was left at
+  let toggledAt = null; // where the pointer was when a less/more button was last clicked
 
   const hideHint = () => { if (hint) hint.style.display = 'none'; };
   const hideTooltip = () => {
@@ -233,9 +256,15 @@
     hint.style.top = `${box.top - height - 4 >= 4 ? box.top - height - 4 : box.bottom + 4}px`;
   };
 
-  const setExpanded = (section, expanded) => {
-    section.classList.toggle('slate-helper-expanded', expanded);
-    section.querySelector(':scope > .slate-helper-tooltip-more')?.setAttribute('aria-expanded', String(expanded));
+  // Show level i of a section from docsHtml, and enable the buttons that
+  // have a level to go to.
+  const levelsOf = (section) => [...section.querySelectorAll(':scope > .slate-helper-docs-level')];
+  const setLevel = (section, i) => {
+    const levels = levelsOf(section);
+    levels.forEach((el, j) => { el.hidden = j !== i; });
+    section.querySelector('.slate-helper-docs-less').disabled = i === 0;
+    section.querySelector('.slate-helper-docs-more').disabled = i === levels.length - 1;
+    return levels[i].dataset.level;
   };
 
   // Above the anchor's line (below it if there's no room), or to its right.
@@ -258,10 +287,9 @@
    * Show html in the shared tooltip, kept inside the window. anchor is
    * { x, top, bottom } (window coordinates): with side 'above' the tooltip sits
    * just above top (or below bottom if it doesn't fit), with 'right' its top
-   * lines up with top. A .slate-helper-tooltip-more chevron inside toggles
-   * its section between the -compact and -full views. sticky: open expanded
-   * if the last sticky tooltip was left expanded (for the suggestion list,
-   * where each highlighted item shows a new one).
+   * lines up with top. Sections from docsHtml get working less/more
+   * buttons. sticky: open at the level the last sticky tooltip was left at
+   * (for the suggestion list, where each highlighted item shows a new one).
    */
   const showTooltip = (html, anchor, side = 'above', { sticky = false } = {}) => {
     if (!tooltip) {
@@ -281,16 +309,16 @@
         .${TOOLTIP_CLASS} a { color: #1a73e8; }
         .${TOOLTIP_CLASS} .slate-helper-docs-label { color: #666; margin-right: 2px; }
         .${TOOLTIP_CLASS} .slate-helper-docs-meta { color: #555; font-size: 12px; }
-        .${TOOLTIP_CLASS} section:has(> .slate-helper-tooltip-more) { position: relative; padding-right: 16px; }
-        .${TOOLTIP_CLASS} .slate-helper-tooltip-more {
-          position: absolute; right: -3px; bottom: 0; display: flex; padding: 0; border: 0; border-radius: 3px;
-          background: none; color: #666; cursor: pointer; transition: transform 0.15s;
+        .${TOOLTIP_CLASS} section:has(> .slate-helper-docs-steps) { position: relative; min-height: 28px; padding-right: 16px; }
+        .${TOOLTIP_CLASS} .slate-helper-docs-level[hidden] { display: none; }
+        .${TOOLTIP_CLASS} .slate-helper-docs-steps { position: absolute; right: -3px; bottom: 0; display: flex; flex-direction: column; }
+        .${TOOLTIP_CLASS} .slate-helper-docs-steps button {
+          all: unset; display: flex; box-sizing: border-box; width: 14px; height: 14px;
+          border-radius: 3px; color: #666; cursor: pointer;
         }
-        .${TOOLTIP_CLASS} .slate-helper-tooltip-more:hover { background: #eee; color: #222; }
-        .${TOOLTIP_CLASS} .slate-helper-tooltip-full,
-        .${TOOLTIP_CLASS} .slate-helper-expanded > .slate-helper-tooltip-compact { display: none; }
-        .${TOOLTIP_CLASS} .slate-helper-expanded > .slate-helper-tooltip-full { display: block; }
-        .${TOOLTIP_CLASS} .slate-helper-expanded > .slate-helper-tooltip-more { transform: rotate(180deg); }
+        .${TOOLTIP_CLASS} .slate-helper-docs-steps svg { display: block; flex: none; margin: 0; }
+        .${TOOLTIP_CLASS} .slate-helper-docs-steps button:hover:not(:disabled) { background: #eee; color: #222; }
+        .${TOOLTIP_CLASS} .slate-helper-docs-steps button:disabled { color: #c4c4c4; cursor: default; }
         .${TOOLTIP_CLASS} [data-slate-helper-hint] { cursor: help; }
         .slate-helper-tooltip-hint {
           position: fixed; z-index: 2147483001; max-width: 360px; padding: 2px 6px; border-radius: 3px;
@@ -307,17 +335,18 @@
       });
       // Keep the editor focused, so the suggestion list stays open.
       tooltip.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.slate-helper-tooltip-more')) e.preventDefault();
+        if (e.target.closest('.slate-helper-docs-steps')) e.preventDefault();
       });
       tooltip.addEventListener('click', (e) => {
-        const more = e.target.closest('.slate-helper-tooltip-more');
-        if (!more) return;
-        const expanded = !more.parentNode.classList.contains('slate-helper-expanded');
-        // Don't get narrower, so the chevron stays under the mouse.
+        const step = e.target.closest('.slate-helper-docs-less, .slate-helper-docs-more');
+        if (!step || step.disabled) return;
+        const section = step.closest('section');
+        const current = levelsOf(section).findIndex((el) => !el.hidden);
+        // Don't get narrower, so the buttons stay under the mouse.
         tooltip.style.minWidth = `${tooltip.getBoundingClientRect().width}px`;
         toggledAt = { x: e.clientX, y: e.clientY };
-        setExpanded(more.parentNode, expanded);
-        if (placement.sticky) expandedBefore = expanded;
+        const level = setLevel(section, current + (step.classList.contains('slate-helper-docs-more') ? 1 : -1));
+        if (placement.sticky) stickyLevel = level;
         place(true);
       });
       tooltip.addEventListener('mouseover', (e) => {
@@ -331,9 +360,11 @@
     }
     hideHint();
     tooltip.innerHTML = html;
-    if (sticky && expandedBefore) {
-      tooltip.querySelectorAll('.slate-helper-tooltip-more').forEach((more) => setExpanded(more.parentNode, true));
-    }
+    tooltip.querySelectorAll('section:has(> .slate-helper-docs-steps)').forEach((section) => {
+      const levels = levelsOf(section);
+      const shown = levels.findIndex((el) => !el.hidden);
+      setLevel(section, sticky && stickyLevel ? pickLevel(levels.map((el) => el.dataset.level), stickyLevel) : shown);
+    });
     tooltip.style.display = 'block';
     tooltip.style.minWidth = '';
     tooltip.scrollTop = 0;

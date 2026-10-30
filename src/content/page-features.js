@@ -6,6 +6,9 @@
   const SH = globalThis.SlateHelper;
   const page = (meta) => SH.registerFeature({ areas: ['admin'], defaultEnabled: true, ...meta, world: 'page' });
   const opt = (id, name, defaultEnabled = true) => ({ id, name, defaultEnabled });
+  const choice = (id, name, choices, defaultValue) => ({
+    id, name, defaultValue, choices: choices.map(([value, label]) => ({ value, label })),
+  });
 
   page({
     id: 'editor-dialog-size',
@@ -119,7 +122,11 @@
     options: [
       opt('html', 'HTML tags and attributes'),
       opt('css', 'CSS in <style>'),
-      opt('compact', 'Compact: first sentence; the corner chevron shows the rest (also beside the suggestion list)'),
+      choice('view', 'Detail (also beside the suggestion list)', [
+        ['compact', 'Compact: first sentence'],
+        ['standard', 'Standard: plus CSS syntax'],
+        ['verbose', 'Verbose: everything'],
+      ], 'standard'),
       opt('description', 'Description'),
       opt('support', 'Browser support (Baseline)'),
       opt('syntax', 'CSS syntax'),

@@ -49,7 +49,7 @@ const defaultOptions = () => {
   loadScripts('src/content/core.js', 'src/content/page-features.js');
   const SH = globalThis.SlateHelper;
   return Object.fromEntries(SH.features.flatMap((f) =>
-    (f.options || []).map((o) => [SH.optionKey(f.id, o.id), o.defaultEnabled])));
+    (f.options || []).map((o) => [SH.optionKey(f.id, o.id), o.choices ? o.defaultValue : o.defaultEnabled])));
 };
 
 /**

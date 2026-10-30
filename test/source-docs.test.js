@@ -57,32 +57,60 @@ describe('source-docs', () => {
     expect(html).toContain('<span class="slate-helper-docs-label">Syntax</span> <code>&lt;\'row-gap\'&gt; &lt;\'column-gap\'&gt;?</code>');
   });
 
-  it('is compact by default: first sentence, short support status, MDN link and a chevron', async () => {
-    const html = docsFor(await editor('<style>\n  .a { display: grid; }\n</style>'), 'display');
-    const [, compact, full, chevron] = html.match(
-      /^<div class="slate-helper-tooltip-compact">(.*?)<\/div><div class="slate-helper-tooltip-full">(.*)<\/div>(<button.*<\/button>)$/);
-    expect(compact).toMatch(/^<p>In combination with 'float' and 'position', determines the type of box[^<]*\.<\/p><p class/);
-    expect(compact).toMatch(/<span data-slate-helper-hint="Widely available across major browsers \(Baseline since \d+\)"><img [^>]+>Widely available<\/span>/);
-    expect(compact).toMatch(/>MDN Reference<\/a><\/p>$/);
-    expect(full).toContain('<span class="slate-helper-docs-label">Syntax</span>');
-    expect(chevron).toMatch(/^<button type="button" class="slate-helper-tooltip-more" aria-label="Show more" aria-expanded="false"><svg/);
+  // The levels in a docs box: [{ name, shown, html }].
+  const levels = (html) => {
+    const box = document.createElement('section');
+    box.innerHTML = html;
+    return [...box.querySelectorAll(':scope > .slate-helper-docs-level')]
+      .map((el) => ({ name: el.dataset.level, shown: !el.hidden, html: el.innerHTML }));
+  };
+  const shownLevel = (html) => levels(html).find((l) => l.shown)?.name;
+
+  it('opens at standard by default: the compact view plus the syntax line', async () => {
+    const html = docsFor(await editor('<style>\n  .a { padding: 0; }\n</style>'), 'padding');
+    const [compact, standard, verbose] = levels(html);
+    expect(levels(html).map((l) => l.name)).toEqual(['compact', 'standard', 'verbose']);
+    expect(shownLevel(html)).toBe('standard');
+    expect(compact.html).toMatch(/^<p>Shorthand property to set values for the thickness of the padding area\.<\/p><p class="slate-helper-docs-meta">/);
+    expect(compact.html).toMatch(/<span data-slate-helper-hint="Widely available across major browsers \(Baseline since \d+\)"><img [^>]+>Widely available<\/span> · <a [^>]+>MDN Reference<\/a><\/p>$/);
+    const syntax = standard.html.match(/<p><span class="slate-helper-docs-label">Syntax<\/span>.*?<\/p>/)[0];
+    expect(standard.html).toBe(compact.html.replace('<p class="slate-helper-docs-meta">', `${syntax}<p class="slate-helper-docs-meta">`));
+    expect(verbose.html).toContain(syntax);
+    // Up (more detail) on top, down (less) below.
+    expect(html).toMatch(/<span class="slate-helper-docs-steps"><button [^>]*class="slate-helper-docs-more" aria-label="Show more"><svg[^>]*><path d="M4 10l4-4 4 4"[^>]*><\/svg><\/button><button [^>]*class="slate-helper-docs-less" aria-label="Show less"><svg[^>]*><path d="M4 6l4 4 4-4"/);
   });
 
-  it('has no chevron when the compact view already shows everything', async () => {
+  it('uses the compact styles at every level', async () => {
+    const html = docsFor(await editor('<style>\n  .a { padding: 0; }\n</style>', { 'source-docs.view': 'verbose' }), 'padding');
+    const verbose = levels(html).find((l) => l.name === 'verbose');
+    expect(verbose.shown).toBe(true);
+    // The support status stays the short label in the meta line, not an italic paragraph.
+    expect(verbose.html).toMatch(/<p class="slate-helper-docs-meta"><span data-slate-helper-hint="[^"]+"><img [^>]+>Widely available<\/span> · /);
+    expect(verbose.html).not.toContain('<i>');
+  });
+
+  it('opens at the level chosen in the options', async () => {
+    const style = '<style>\n  .a { padding: 0; }\n</style>';
+    expect(shownLevel(docsFor(await editor(style, { 'source-docs.view': 'compact' }), 'padding'))).toBe('compact');
+    expect(shownLevel(docsFor(await editor(style, { 'source-docs.view': 'verbose' }), 'padding'))).toBe('verbose');
+  });
+
+  it('without a syntax line, compact and standard are one level', async () => {
+    const cm = await editor('<p class="x">a</p>', { 'source-docs.view': 'compact' });
+    const html = docsFor(cm, 'class');
+    expect(levels(html).map((l) => l.name)).toEqual(['standard', 'verbose']);
+    expect(shownLevel(html)).toBe('standard');
+  });
+
+  it('has no buttons when there is only one level', async () => {
     const html = docsFor(await editor(TEMPLATE), 'table');
-    expect(html).not.toContain('slate-helper-tooltip-more');
+    expect(html).not.toContain('slate-helper-docs-steps');
     expect(html).toMatch(/^<p>The table element represents data/);
-  });
-
-  it('can open verbose instead', async () => {
-    const html = docsFor(await editor(TEMPLATE, { 'source-docs.compact': false }), 'gap');
-    expect(html).not.toContain('slate-helper-tooltip-compact');
-    expect(html).toMatch(/^<p>The gap CSS property.*Baseline icon.*Syntax.*MDN Reference/);
   });
 
   it('hides the parts turned off', async () => {
     const cm = await editor(TEMPLATE, {
-      'source-docs.compact': false, 'source-docs.support': false, 'source-docs.syntax': false, 'source-docs.links': false,
+      'source-docs.view': 'verbose', 'source-docs.support': false, 'source-docs.syntax': false, 'source-docs.links': false,
     });
     const html = docsFor(cm, 'gap');
     expect(html).toContain('The gap CSS property');
@@ -104,30 +132,40 @@ describe('source-docs', () => {
     expect(tip().style.top).toBe('300px');
   });
 
-  it('the chevron expands the compact view, and collapses it again', async () => {
-    const cm = await editor(TEMPLATE);
-    window.SlateHelperPage.cm.showTooltip(`<section>${docsFor(cm, 'gap')}</section>`, { x: 0, top: 300, bottom: 316 });
+  const showDocs = (html, sticky = false) => {
+    window.SlateHelperPage.cm.showTooltip(`<section>${html}</section>`, { x: 0, top: 300, bottom: 316 }, sticky ? 'right' : 'above', { sticky });
     const section = document.querySelector('.slate-helper-tooltip section');
-    const chevron = section.querySelector('.slate-helper-tooltip-more');
-    chevron.click();
-    expect(section.classList.contains('slate-helper-expanded')).toBe(true);
-    expect(chevron.getAttribute('aria-expanded')).toBe('true');
-    chevron.click();
-    expect(section.classList.contains('slate-helper-expanded')).toBe(false);
-    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    const less = section.querySelector('.slate-helper-docs-less');
+    const more = section.querySelector('.slate-helper-docs-more');
+    const state = () => `${levels(section.innerHTML).find((l) => l.shown).name} less:${!less.disabled} more:${!more.disabled}`;
+    return { less, more, state };
+  };
+
+  it('less and more step through the levels, enabled only when there is a level that way', async () => {
+    const html = docsFor(await editor('<style>\n  .a { padding: 0; }\n</style>'), 'padding');
+    const { less, more, state } = showDocs(html);
+    expect(state()).toBe('standard less:true more:true');
+    less.click();
+    expect(state()).toBe('compact less:false more:true');
+    more.click();
+    more.click();
+    expect(state()).toBe('verbose less:true more:false');
+    less.click();
+    expect(state()).toBe('standard less:true more:true');
   });
 
-  it('sticky tooltips open expanded when the last one was left expanded', async () => {
-    const cm = await editor(TEMPLATE);
-    const { showTooltip } = window.SlateHelperPage.cm;
-    const html = `<section>${docsFor(cm, 'gap')}</section>`;
-    const expanded = () => document.querySelector('.slate-helper-tooltip section').classList.contains('slate-helper-expanded');
-    showTooltip(html, { x: 0, top: 300, bottom: 316 }, 'right', { sticky: true });
-    document.querySelector('.slate-helper-tooltip-more').click();
-    showTooltip(html, { x: 0, top: 300, bottom: 316 }, 'right', { sticky: true });
-    expect(expanded()).toBe(true);
-    showTooltip(html, { x: 0, top: 300, bottom: 316 }); // hovers always open compact
-    expect(expanded()).toBe(false);
+  it('a box without a syntax line has two levels to step between', async () => {
+    const { more, state } = showDocs(docsFor(await editor('<p class="x">a</p>'), 'class'));
+    expect(state()).toBe('standard less:false more:true');
+    more.click();
+    expect(state()).toBe('verbose less:true more:false');
+  });
+
+  it('sticky tooltips open at the level the last one was left at', async () => {
+    const html = docsFor(await editor('<style>\n  .a { padding: 0; }\n</style>'), 'padding');
+    showDocs(html, true).more.click();
+    expect(showDocs(html, true).state()).toBe('verbose less:true more:false');
+    expect(showDocs(html).state()).toBe('standard less:true more:true'); // hovers open at the chosen level
   });
 
   it('shows hints for the support status and link titles in its own label', async () => {

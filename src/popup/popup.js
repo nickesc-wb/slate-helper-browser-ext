@@ -139,7 +139,8 @@ $('check-updates').addEventListener('click', async () => {
   }));
 
   // --- Features ---------------------------------------------------------------
-  // Global, not per-site. Options are stored as features['<feature>.<option>'].
+  // Global, not per-site. Options are stored as features['<feature>.<option>']:
+  // true/false for toggles, the picked value for choices.
   const saveToggle = async (key, value) => {
     const { features } = await chrome.storage.sync.get(DEFAULT_SETTINGS);
     features[key] = value;
@@ -168,6 +169,7 @@ $('check-updates').addEventListener('click', async () => {
     item.append(row);
 
     const optionBoxes = [];
+    const optionSelects = [];
     let updateCount = () => {};
     if (f.options.length) {
       const more = el('button', 'more');
@@ -177,6 +179,23 @@ $('check-updates').addEventListener('click', async () => {
       const list = el('ul', 'options');
 
       for (const o of f.options) {
+        if (o.choices) {
+          const label = el('label', 'option option-choice');
+          const select = el('select');
+          for (const c of o.choices) {
+            const choice = el('option', null, c.label);
+            choice.value = c.value;
+            select.append(choice);
+          }
+          select.value = o.value;
+          select.addEventListener('change', () => saveToggle(`${f.id}.${o.id}`, select.value));
+          optionSelects.push(select);
+          label.append(el('span', null, o.name), select);
+          const li = el('li');
+          li.append(label);
+          list.append(li);
+          continue;
+        }
         const label = el('label', 'option');
         const optBox = el('input');
         optBox.type = 'checkbox';
@@ -194,7 +213,7 @@ $('check-updates').addEventListener('click', async () => {
 
       updateCount = () => {
         const on = optionBoxes.filter((b) => b.checked).length;
-        count.textContent = `· ${on} of ${optionBoxes.length} on`;
+        count.textContent = optionBoxes.length ? `· ${on} of ${optionBoxes.length} on` : '';
       };
       const setOpen = (open) => {
         more.setAttribute('aria-expanded', String(open));
@@ -214,7 +233,7 @@ $('check-updates').addEventListener('click', async () => {
     const applyEnabled = () => {
       item.classList.toggle('disabled', !box.checked);
       toggle.title = box.checked ? 'On' : 'Off';
-      optionBoxes.forEach((b) => { b.disabled = !box.checked; });
+      [...optionBoxes, ...optionSelects].forEach((b) => { b.disabled = !box.checked; });
     };
     box.addEventListener('change', () => {
       applyEnabled();
