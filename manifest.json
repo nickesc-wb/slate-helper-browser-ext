@@ -39,6 +39,7 @@
         "src/page/features/source-find-replace.js",
         "src/page/features/source-format.js",
         "src/page/features/source-element-highlight.js",
+        "src/page/features/source-triple-click.js",
         "src/page/features/source-lint.js",
         "src/page/features/source-docs.js",
         "src/page/features/source-liquid-check.js",

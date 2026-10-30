@@ -103,6 +103,13 @@
   });
 
   page({
+    id: 'source-triple-click',
+    group: 'Source view',
+    name: 'Triple-click selects element text',
+    description: 'Triple-clicking text selects everything inside the element it\'s in (a paragraph, heading, <strong>, <a>…) but not that element\'s tags, even when they\'re on the same line. In a tag, triple-clicking an attribute\'s value selects the value without its quotes.',
+  });
+
+  page({
     id: 'source-lint',
     group: 'Source view',
     name: 'Lint HTML, CSS and JavaScript',
