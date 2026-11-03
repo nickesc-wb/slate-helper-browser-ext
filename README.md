@@ -12,10 +12,10 @@ A browser extension that improves Technolutions Slate's admin UI. It works on an
    irm https://raw.githubusercontent.com/nickesc-wb/slate-helper-browser-ext/main/updater/get.ps1 | iex
    ```
 
-   This installs Slate Helper to `%USERPROFILE%\Slate Helper`, sets up one-click updates and copies the folder path.
-2. In your browser, go to `chrome://extensions` (`brave://extensions` in Brave).
+   This installs Slate Helper to `%USERPROFILE%\Slate Helper`, sets up one-click updates and automatically copies the folder path to your clipboard.
+2. In your browser, go to `chrome://extensions`.
 3. Turn on **Developer mode** (top right).
-4. Click **Load unpacked** and paste the path.
+4. Click **Load unpacked** and paste the path that was copied by the install script.
 
 To install somewhere else, set `$env:SLATE_HELPER_DIR` before step 1.
 
