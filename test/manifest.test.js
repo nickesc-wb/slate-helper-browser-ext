@@ -57,4 +57,13 @@ describe('manifest.json', () => {
       .map((f) => readFileSync(resolve(ROOT, f), 'utf8').match(/registerFeature\('([^']+)'/)[1]);
     expect(pageFeatureMetadataIds().sort()).toEqual(codeIds.sort());
   });
+
+  it('every feature is in a popup group, and every group has features', () => {
+    delete globalThis.SlateHelper;
+    globalThis.chrome = {};
+    loadScripts(...isolated.js.filter((f) => f !== 'src/content/main.js'));
+    const { GROUPS, features } = globalThis.SlateHelper;
+    for (const f of features) expect(GROUPS, f.id).toContain(f.group);
+    for (const g of GROUPS) expect(features.some((f) => f.group === g), g).toBe(true);
+  });
 });

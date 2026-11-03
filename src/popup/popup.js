@@ -1,8 +1,17 @@
 const $ = (id) => document.getElementById(id);
 const DEFAULT_SETTINGS = { siteOverrides: {}, features: {}, debug: false };
 const EXPANDED_KEY = 'slate-helper-popup-expanded'; // which features show their options
+const TAB_KEY = 'slate-helper-popup-tab'; // last-opened feature group
 
-const AREA_LABELS = { admin: 'Admin', apply: 'Application', portal: 'Portal', other: 'Other page' };
+// Shorter tab names so every group's tab fits on one row; the rest use the
+// group name as is.
+const TAB_LABELS = {
+  'Source typing': 'Typing',
+  'Source tools': 'Tools',
+  'Source checks & docs': 'Checks',
+  'Query builder': 'Queries',
+};
+const AREA_LABELS ={ admin: 'Admin', apply: 'Application', portal: 'Portal', other: 'Other page' };
 const SIGNAL_LABELS = {
   'technolutions-host': 'technolutions.net address',
   'fw-global': "Slate's FW framework",
@@ -33,6 +42,12 @@ const loadExpanded = () => {
 };
 const saveExpanded = (set) => {
   try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...set])); } catch { /* ignore */ }
+};
+const loadTab = () => {
+  try { return localStorage.getItem(TAB_KEY); } catch { return null; }
+};
+const saveTab = (group) => {
+  try { localStorage.setItem(TAB_KEY, group); } catch { /* ignore */ }
 };
 
 const setStatus = (text, on = false) => {
@@ -244,15 +259,48 @@ $('check-updates').addEventListener('click', async () => {
     return item;
   };
 
-  for (const group of [...state.groups, 'Other']) {
+  // One tab per group, so no group buries the others.
+  const tabs = [...state.groups, 'Other'].flatMap((group) => {
     const inGroup = state.features.filter((f) => f.group === group);
-    if (!inGroup.length) continue;
-    const section = el('section', 'group');
-    const list = el('ul', 'card');
-    inGroup.forEach((f) => list.append(renderFeature(f)));
-    section.append(el('h2', null, group), list);
-    $('features').append(section);
-  }
+    if (!inGroup.length) return [];
+    const i = $('tabs').children.length;
+    const tab = el('button', 'tab', TAB_LABELS[group] || group);
+    tab.type = 'button';
+    tab.title = group;
+    tab.id = `tab-${i}`;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', `panel-${i}`);
+    const panel = el('ul', 'card');
+    panel.id = `panel-${i}`;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', tab.id);
+    inGroup.forEach((f) => panel.append(renderFeature(f)));
+    $('tabs').append(tab);
+    $('features').append(panel);
+    return [{ group, tab, panel }];
+  });
+
+  const selectTab = (t, focus = false) => {
+    for (const o of tabs) {
+      o.tab.setAttribute('aria-selected', String(o === t));
+      o.tab.tabIndex = o === t ? 0 : -1;
+      o.panel.hidden = o !== t;
+    }
+    if (focus) t.tab.focus();
+    saveTab(t.group);
+  };
+  if (tabs.length) selectTab(tabs.find((t) => t.group === loadTab()) || tabs[0]);
+  tabs.forEach((t, i) => {
+    t.tab.addEventListener('click', () => selectTab(t));
+    t.tab.addEventListener('keydown', (e) => {
+      const to = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: tabs.length - 1 }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      selectTab(tabs[(to + tabs.length) % tabs.length], true);
+    });
+  });
+  // The tab bar sticks under the header while a long group scrolls.
+  document.body.style.setProperty('--top-height', `${document.querySelector('.top').offsetHeight}px`);
 
   $('reload').addEventListener('click', () => reloadTab(tab.id));
 })();

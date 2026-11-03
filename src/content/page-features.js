@@ -42,7 +42,7 @@
 
   page({
     id: 'source-indent',
-    group: 'Source view',
+    group: 'Source typing',
     name: 'Indentation',
     description: 'How Tab, Backspace, Enter and paste handle indentation.',
     options: [
@@ -56,7 +56,7 @@
 
   page({
     id: 'source-autoclose',
-    group: 'Source view',
+    group: 'Source typing',
     name: 'Auto-close pairs',
     description: 'Typing an opening character adds the closing one.',
     options: [
@@ -67,7 +67,7 @@
 
   page({
     id: 'source-autocomplete',
-    group: 'Source view',
+    group: 'Source typing',
     name: 'Autocomplete',
     description: 'Suggestions as you type. Tab or Enter accepts, Esc closes.',
     options: [
@@ -83,35 +83,35 @@
 
   page({
     id: 'source-find-replace',
-    group: 'Source view',
+    group: 'Source tools',
     name: 'Find & replace',
     description: 'The Find/Replace toolbar buttons work in source view. Ctrl+F finds, Ctrl+H replaces.',
   });
 
   page({
     id: 'source-format',
-    group: 'Source view',
+    group: 'Source tools',
     name: 'Format button',
     description: 'A Format button in the editor toolbar (and Shift+Alt+F) tidies the HTML the same way reopening the editor does, without saving or closing.',
   });
 
   page({
     id: 'source-element-highlight',
-    group: 'Source view',
+    group: 'Source tools',
     name: 'Highlight current element',
     description: 'Shades the element the cursor is in, from its opening tag to its closing tag. Inside <style>, shades the innermost CSS rule instead.',
   });
 
   page({
     id: 'source-triple-click',
-    group: 'Source view',
+    group: 'Source tools',
     name: 'Triple-click selects element text',
     description: 'Triple-clicking text selects everything inside the element it\'s in (a paragraph, heading, <strong>, <a>…) but not that element\'s tags, even when they\'re on the same line. In a tag, triple-clicking an attribute\'s value selects the value without its quotes.',
   });
 
   page({
     id: 'source-lint',
-    group: 'Source view',
+    group: 'Source checks & docs',
     name: 'Lint HTML, CSS and JavaScript',
     description: 'Underlines problems: HTML tags that don\'t pair up, CSS syntax errors and unknown properties, JavaScript syntax errors. Hover an underline for details. Liquid is skipped.',
     options: [
@@ -123,7 +123,7 @@
 
   page({
     id: 'source-docs',
-    group: 'Source view',
+    group: 'Source checks & docs',
     name: 'Hover docs',
     description: 'Rest the mouse on an HTML tag or attribute, or a CSS property or value, to see its MDN description, browser support and a link to MDN.',
     options: [
@@ -144,7 +144,7 @@
 
   page({
     id: 'source-liquid-check',
-    group: 'Source view',
+    group: 'Source checks & docs',
     name: 'Check Liquid tags',
     description: 'Underlines Liquid block tags that don\'t pair up, like an {% if %} with no {% endif %}. Hover an underline for details.',
   });

@@ -198,16 +198,37 @@ main[hidden] { display: none; }
 
 /* --- Features ----------------------------------------------------------------- */
 
-#features { display: flex; flex-direction: column; gap: 14px; }
-
-.group h2 {
-  margin: 0 0 6px 4px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
+/* Tabs, one per group. Sticky under the header so they stay reachable while a
+   long group scrolls (popup.js sets --top-height). */
+.tabs {
+  position: sticky;
+  top: var(--top-height, 0);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  margin: -6px -12px -8px;
+  padding: 6px 8px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
 }
+.tabs:empty { display: none; }
+.tab {
+  flex: 1 1 auto;
+  margin-bottom: -1px;
+  padding: 6px 5px 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
 
 .feature + .feature { border-top: 1px solid var(--border); }
 

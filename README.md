@@ -12,7 +12,7 @@ Chrome won't install packaged extensions from outside the Chrome Web Store, so t
 
 ## Features
 
-All are on by default and can be switched off in the toolbar popup, grouped by section. Most have sub-options, so individual behaviors can be switched off too.
+All are on by default and can be switched off in the toolbar popup, which has a tab per section. Most have sub-options, so individual behaviors can be switched off too.
 
 | Feature | What it does |
 |---|---|
@@ -54,7 +54,7 @@ The content scripts load on every http/https page. They stay idle unless the pag
 
 A score of 5 or more counts as Slate. Detection also sets an **area** from the path: `admin` (`/manage`), `apply`, `portal`, or `other`. Features can limit themselves to certain areas.
 
-**Per-site override:** if detection gets a site wrong, open the popup and set the site to *Always on* or *Always off*.
+**Per-site override:** if detection gets a site wrong, open the popup and set *This site* to *On* or *Off* (*Auto* goes back to detection).
 
 When the extension is active, the toolbar icon shows a small green dot, and `<html>` gets the classes `slate-helper-active` and `slate-helper-area-<area>`.
 
@@ -91,7 +91,7 @@ src/
     cm-utils.js                CodeMirror/CKEditor helpers, Liquid masking, hover tooltip
     features/                  features that use CKEditor / CodeMirror / FW
     boot.js                    starts the page runtime (loads last)
-  popup/                       status, per-site override, feature toggles
+  popup/                       status, per-site override, feature toggles (a tab per group)
   vendor/source-tools.js       generated bundle of the language tools, loaded on demand
 tools/                         build script for src/vendor/ (dev only)
 ```
@@ -106,7 +106,7 @@ tools/                         build script for src/vendor/ (dev only)
   SH.registerFeature({
     id: 'my-feature',
     name: 'My feature',
-    group: 'Dialogs',          // popup section (see SH.GROUPS in core.js)
+    group: 'Dialogs',          // popup tab (see SH.GROUPS in core.js)
     description: 'What it does, shown in the popup.',
     defaultEnabled: true,
     areas: ['admin'],          // or '*'
@@ -149,7 +149,9 @@ npm test
 
 Tests use [Vitest](https://vitest.dev) with jsdom, a simulated browser page in Node. Nothing runs against a real Slate instance. Each test loads the extension's scripts into the page the way Chrome does. Source-view features are tested against CodeMirror 5 from npm, set up like Slate's editor (htmlmixed with Liquid multiplexed in); see `test/helpers/codemirror.js` (`provideSourceTools()` hands the page the vendor bundle, as the background would). In test strings, `‸` marks the cursor (`|` is Liquid's filter pipe).
 
-`test/manifest.test.js` checks that `manifest.json` lists every feature file in the right order and that each page feature has popup metadata in `src/content/page-features.js`.
+`test/manifest.test.js` checks that `manifest.json` lists every feature file in the right order and that each page feature has popup metadata in `src/content/page-features.js`. `test/popup.test.js` opens the popup against a stubbed `chrome.*`.
+
+The popup shows detection and the per-site override above a row of tabs, one per group in `SH.GROUPS` that has features (plus *Other* for features without a known group). Long group names get a shorter tab label from `TAB_LABELS` in `src/popup/popup.js`; add one there if a new group would make the tabs wrap. The last-opened tab and which features show their options are remembered in the popup's `localStorage`.
 
 The tooling (`package.json`, `node_modules/`, `test/`, `tools/`) is for development only and isn't part of the released extension.
 
