@@ -8,7 +8,13 @@ A Chrome extension (Manifest V3) that improves the UI and UX of Technolutions Sl
 2. Open `chrome://extensions` and turn on **Developer mode**
 3. Click **Load unpacked** and pick the folder
 
-Chrome won't install packaged extensions from outside the Chrome Web Store, so the extension is loaded unpacked and doesn't auto-update. When a new release is out, Slate pages show a notice in the bottom-right corner. To update, replace the folder's contents with the new release and click the reload button on `chrome://extensions`.
+Chrome won't install packaged extensions from outside the Chrome Web Store, so the extension is loaded unpacked and doesn't auto-update. When a new release is out, Slate pages show a notice in the bottom-right corner.
+
+### Updating
+
+**One click (Windows):** double-click `updater\install.cmd` in the extension folder once. It sets up a small helper for your Windows user (no admin rights needed) that Chrome, Brave and Edge can call. From then on, the update notice has an **Update now** button that downloads the new release over the folder and reloads the extension and the page. Run `install.cmd` again if you move the folder; `install.cmd -Uninstall` removes the helper. The helper never touches a git clone: update those with `git pull`.
+
+**By hand:** replace the folder's contents with the new release and click the reload button on `chrome://extensions`.
 
 ## Features
 
@@ -32,7 +38,7 @@ All are on by default and can be switched off in the toolbar popup, which has a 
 | Source view: lint | Underlines HTML tags that don't pair up, duplicate attributes and empty `src` (HTMLHint), CSS syntax errors, unknown properties and empty rules in `<style>` (VS Code's CSS checks), and JavaScript errors in `<script>` (JSHint); hover for details. Liquid is skipped |
 | Source view: hover docs | Rest the mouse on an HTML tag or attribute, or a CSS property or value, for its MDN docs, shown just above the line. Three detail levels: compact (first sentence, support status and MDN link), standard (compact plus the CSS syntax line; the default) and verbose (everything); up/down buttons in the corner step between the levels a box has (up for more detail, verbose at the top). Description, browser support (Baseline), CSS syntax, selector specificity and links can each be hidden. The suggestion list's docs follow the same settings |
 | Source view: check Liquid tags | Underlines `{% if %}`, `{% for %}` etc. with no end tag (and their `{% elsif %}` / `{% else %}` / `{% when %}`), end tags with nothing to close, and `{% else %}` / `{% when %}` outside their block; hover for details |
-| Update notice | A notice in the bottom-right corner when a newer release is on GitHub, linking to it |
+| Update notice | A notice in the bottom-right corner when a newer release is on GitHub, linking to it; with the updater installed, **Update now** installs it |
 
 ## Development
 
@@ -79,7 +85,7 @@ The bundle is built by `tools/build-vendor.mjs` (`npm run vendor`) and committed
 ```
 manifest.json
 src/
-  background.js                toolbar badge, dev auto-reload
+  background.js                toolbar badge, dev auto-reload, release check, updater calls
   content/                     isolated world
     probe-main.js              (runs in MAIN world) probe for Slate's FW global
     core.js                    SlateHelper namespace, settings, feature registry, DOM/nav hooks
@@ -95,7 +101,16 @@ src/
   popup/                       status, per-site override, feature toggles (a tab per group)
   vendor/source-tools.js       generated bundle of the language tools, loaded on demand
 tools/                         build script for src/vendor/ (dev only)
+updater/                       Windows updater: native messaging host + installer (shipped in the zip)
 ```
+
+#### Updater
+
+An extension can't write to its own folder, so one-click updates go through a [native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) host (hence the `nativeMessaging` permission). `updater/install.ps1` (run through `install.cmd`) copies `host.ps1`/`host.cmd` to `%LOCALAPPDATA%\SlateHelper\updater` with a `config.json` naming the extension folder, writes the host manifest `com.waybetter.slate_helper.json` there, and registers it under HKCU in Chrome's, Chromium's and Brave's keys (Chromium-based browsers read Chrome's or Chromium's; Brave's binary names both) and Edge's. The manifest only allows this folder's extension ID, which the installer computes the way Chrome names unpacked extensions: SHA-256 of the folder path (UTF-16, drive letter upper-cased), first 32 hex digits mapped `0-f` to `a-p`.
+
+The background talks to it with `chrome.runtime.sendNativeMessage`: `slate-helper:updater` pings it (the toast shows **Update now** only if it answers and the folder isn't a git checkout) and `slate-helper:update` asks it to update. The host downloads the latest release's zip, mirrors `icons/`, `src/` and `updater/` into the folder (robocopy `/MIR`, so removed files go too), copies `manifest.json` last, and refreshes its own copy of `host.ps1`. The background then reloads the extension and the tab that asked (the dev auto-reload's `devReloadTab` hand-off). In a git checkout the host refuses and leaves the folder alone.
+
+The scripts target Windows PowerShell 5.1 (`powershell.exe`), and the host must write nothing to stdout but its reply. `.gitattributes` keeps `*.cmd`/`*.ps1` at CRLF so the zip built on Linux still has Windows line endings. To try the host without the browser, send it a length-prefixed JSON message (`{"type":"ping"}`) on stdin, the way Chrome does.
 
 ### Adding a feature
 
@@ -163,7 +178,7 @@ Day-to-day work happens on `dev`. To release:
 1. Bump `"version"` in `manifest.json` on `dev`
 2. Merge `dev` into `main` and push
 
-On every push to `main`, the Release workflow checks whether `v<version>` from `manifest.json` has been released yet. If it hasn't, it runs the tests, zips `manifest.json`, `icons/` and `src/`, tags the commit `v<version>`, and publishes a GitHub Release with the zip. A push to `main` without a version bump releases nothing. If the tests fail, nothing is released; fix them and push again.
+On every push to `main`, the Release workflow checks whether `v<version>` from `manifest.json` has been released yet. If it hasn't, it runs the tests, zips `manifest.json`, `icons/`, `src/` and `updater/`, tags the commit `v<version>`, and publishes a GitHub Release with the zip. A push to `main` without a version bump releases nothing. If the tests fail, nothing is released; fix them and push again.
 
 The Test workflow runs the tests on every push to `main` and `dev` and on pull requests.
 

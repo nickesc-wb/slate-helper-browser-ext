@@ -12,6 +12,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     latestRelease(msg.fresh).then(sendResponse, () => sendResponse(null));
     return true;
   }
+  if (msg?.type === 'slate-helper:updater') {
+    updaterStatus().then(sendResponse);
+    return true;
+  }
+  if (msg?.type === 'slate-helper:update') {
+    update(sender.tab?.id).then(sendResponse);
+    return true;
+  }
 });
 
 // --- Toolbar icon --------------------------------------------------------------
@@ -99,6 +107,34 @@ async function latestRelease(fresh = false) {
   };
   await chrome.storage.local.set({ latestRelease: latest });
   return latest;
+}
+
+// --- Updater -------------------------------------------------------------------
+// An extension can't write to its own folder, so "Update now" asks the native
+// messaging host from updater/ (installed once per machine with install.cmd)
+// to copy the latest release's zip over it. Git checkouts are left to git.
+// After an update the extension reloads, and so does the tab that asked (see
+// onInstalled below).
+const UPDATER_HOST = 'com.waybetter.slate_helper';
+
+const callUpdater = (message) =>
+  chrome.runtime.sendNativeMessage(UPDATER_HOST, message).catch((err) => ({ ok: false, error: err.message }));
+
+/**
+ * { available, error }: available when the updater answers and this copy
+ * isn't a git checkout; error is Chrome's reason when it didn't answer.
+ */
+async function updaterStatus() {
+  const reply = await callUpdater({ type: 'ping' });
+  return { available: !!reply.ok && !reply.git, error: reply.error };
+}
+
+async function update(tabId) {
+  const reply = await callUpdater({ type: 'update' });
+  if (!reply.ok) return reply;
+  if (tabId != null) await chrome.storage.local.set({ devReloadTab: tabId });
+  setTimeout(() => chrome.runtime.reload(), 100); // let the reply reach the caller first
+  return reply;
 }
 
 // --- Dev auto-reload (unpacked installs only) ---------------------------------

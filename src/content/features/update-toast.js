@@ -1,6 +1,7 @@
 // Toast in the bottom-right corner when GitHub has a newer release than the
-// installed version, linking to the release. Closing it hides it until the
-// next release.
+// installed version, linking to the release. With the updater installed
+// (updater/install.cmd), it also has an "Update now" button. Closing it hides
+// it until the next release.
 (() => {
   const SH = globalThis.SlateHelper;
 
@@ -15,7 +16,7 @@
     return false;
   };
 
-  const show = (release) => {
+  const show = (release, updater) => {
     SH.injectStyle('update-toast', `
       #slate-helper-update-toast {
         position: fixed;
@@ -42,6 +43,13 @@
         cursor: pointer;
       }
       #slate-helper-update-toast button:hover { color: #fff; }
+      #slate-helper-update-toast button.slate-helper-update-now {
+        padding: 0;
+        color: #8ab4f8;
+        font: 600 13px/1.4 system-ui, sans-serif;
+        text-decoration: underline;
+      }
+      #slate-helper-update-toast button.slate-helper-update-now:disabled { color: #bbb; cursor: default; text-decoration: none; }
     `);
 
     const toast = document.createElement('div');
@@ -52,7 +60,29 @@
     link.href = release.url;
     link.target = '_blank';
     link.rel = 'noopener';
-    link.textContent = 'Get the update';
+    link.textContent = updater ? 'What\'s new' : 'Get the update';
+    if (updater) {
+      // The updater (updater/ in the extension folder) copies the release over
+      // this folder; the background then reloads the extension and this tab.
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'slate-helper-update-now';
+      button.textContent = 'Update now';
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        button.textContent = 'Updating…';
+        const result = await chrome.runtime.sendMessage({ type: 'slate-helper:update' }).catch((err) => ({ error: err.message }));
+        if (result?.ok) {
+          button.textContent = `Updated to ${result.version}, reloading…`;
+          return;
+        }
+        button.textContent = 'Update failed';
+        button.title = result?.error || '';
+        link.textContent = 'Get the update';
+        console.warn('[Slate Helper] update failed:', result?.error);
+      });
+      text.append(button, ' · ');
+    }
     text.appendChild(link);
     const close = document.createElement('button');
     close.type = 'button';
@@ -70,7 +100,7 @@
     id: 'update-toast',
     group: 'Extension',
     name: 'Update notice',
-    description: 'Shows a notice in the bottom-right corner when a new Slate Helper release is on GitHub.',
+    description: 'Shows a notice in the bottom-right corner when a new Slate Helper release is on GitHub. With the updater installed, "Update now" installs it.',
     defaultEnabled: true,
     areas: '*',
     async init() {
@@ -78,7 +108,9 @@
       if (!release || !SH.isNewerVersion(release.version, chrome.runtime.getManifest().version)) return;
       const { dismissedRelease } = await chrome.storage.local.get('dismissedRelease');
       if (dismissedRelease === release.version) return;
-      show(release);
+      const updater = await chrome.runtime.sendMessage({ type: 'slate-helper:updater' }).catch(() => null);
+      if (updater?.error) SH.log('updater:', updater.error);
+      show(release, !!updater?.available);
     },
   });
 })();

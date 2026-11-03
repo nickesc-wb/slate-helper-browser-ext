@@ -47,12 +47,13 @@ jobs:
       - if: steps.version.outputs.new == 'true'
         run: npm test
 
-      # Only what Chrome needs: no tests, node_modules or dev config.
+      # Only what Chrome needs, plus the updater (updater/install.cmd): no
+      # tests, node_modules or dev config.
       - name: Zip the extension
         if: steps.version.outputs.new == 'true'
         run: |
           mkdir -p dist
-          zip -r "dist/slate-helper-${{ steps.version.outputs.version }}.zip" manifest.json icons src
+          zip -r "dist/slate-helper-${{ steps.version.outputs.version }}.zip" manifest.json icons src updater
 
       - name: Publish the release
         if: steps.version.outputs.new == 'true'
