@@ -41,6 +41,13 @@
   });
 
   page({
+    id: 'form-response-delete',
+    group: 'Dialogs',
+    name: 'Delete registrations in one step',
+    description: 'A Delete button in a registered form response\'s popup cancels and deletes it, without switching to the Cancelled tab and reopening it.',
+  });
+
+  page({
     id: 'source-indent',
     group: 'Source typing',
     name: 'Indentation',

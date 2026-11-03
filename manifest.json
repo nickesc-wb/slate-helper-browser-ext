@@ -33,6 +33,7 @@
         "src/page/features/editor-dialog-size.js",
         "src/page/features/editor-keep-open.js",
         "src/page/features/link-dialog.js",
+        "src/page/features/form-response-delete.js",
         "src/page/features/source-indent.js",
         "src/page/features/source-autoclose.js",
         "src/page/features/source-autocomplete.js",
