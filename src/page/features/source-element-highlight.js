@@ -2,17 +2,41 @@
 // every line from the opening tag to the closing tag; single-line elements
 // shade just the element's own text. Inside <style>, the innermost CSS rule
 // the cursor is in (selector through closing brace) is shaded instead.
+// With the liquid option, the innermost Liquid statement around the cursor
+// (an {% if %}…{% endif %} block, or a lone {{ }} / {% assign %} tag) is also
+// shaded light blue, layered over the element shading.
 (() => {
   const SHP = window.SlateHelperPage;
   const LINE_CLASS = 'slate-helper-element-line';
   const MARK_CLASS = 'slate-helper-element-mark';
+  const LIQUID_LINE_CLASS = 'slate-helper-liquid-line';
+  const LIQUID_MARK_CLASS = 'slate-helper-liquid-mark';
 
-  const clear = (cm) => {
-    const st = cm.state.slateHelperHighlight;
+  // Liquid tags that open a block closed by {% end<name> %}.
+  const BLOCKS = ['if', 'unless', 'case', 'for', 'capture', 'comment', 'raw', 'tablerow'];
+  // Tags that only split a block, so they aren't statements of their own.
+  const BRANCHES = ['elsif', 'else', 'when'];
+  // Blocks whose content isn't parsed as Liquid.
+  const VERBATIM = ['comment', 'raw'];
+  // {{ }} (no group) or {% name … %} (group 1 is the tag name).
+  const LIQUID = /\{\{[\s\S]*?\}\}|\{%-?\s*(\w*)[\s\S]*?%\}/g;
+
+  // A shading is { mark, lines }: one text mark, or line handles given lineClass.
+  const unshade = (cm, st, lineClass) => {
     if (!st) return;
     st.mark?.clear();
-    st.lines.forEach((h) => cm.removeLineClass(h, 'background', LINE_CLASS));
-    cm.state.slateHelperHighlight = null;
+    st.lines.forEach((h) => cm.removeLineClass(h, 'background', lineClass));
+  };
+
+  // A single-line range gets a text mark, a multi-line one a background per line.
+  const shade = (cm, { from, to }, markClass, lineClass) => {
+    const st = { mark: null, lines: [] };
+    if (from.line === to.line) {
+      st.mark = cm.markText(from, to, { className: markClass });
+    } else {
+      for (let l = from.line; l <= to.line; l++) st.lines.push(cm.addLineClass(l, 'background', lineClass));
+    }
+    return st;
   };
 
   // The element whose tag the cursor is on, or else the one it's inside.
@@ -86,34 +110,80 @@
     return el?.open && { from: el.open.from, to: (el.close || el.open).to };
   };
 
-  const update = (cm) => {
-    clear(cm);
-    if (cm.somethingSelected()) return;
-    const range = currentRange(cm);
-    if (!range) return;
-    const start = range.from;
-    const end = range.to;
-
-    const st = { mark: null, lines: [] };
-    if (start.line === end.line) {
-      st.mark = cm.markText(start, end, { className: MARK_CLASS });
-    } else {
-      cm.operation(() => {
-        for (let l = start.line; l <= end.line; l++) {
-          st.lines.push(cm.addLineClass(l, 'background', LINE_CLASS));
-        }
-      });
+  /**
+   * The innermost Liquid statement around offset cursor in text, as
+   * { from, to } offsets: a block from its opening tag through its end tag,
+   * or a lone {{ }} / {% %} tag (assign, include, …). Branch tags
+   * ({% else %} …) belong to their block. Right after a tag counts as on it.
+   * Unclosed blocks are skipped; source-liquid-check underlines those.
+   */
+  const liquidStatement = (text, cursor) => {
+    const stack = []; // { name, from }
+    let best = null;
+    const consider = (from, to) => {
+      // Of the statements around the cursor, the one starting last is the innermost.
+      if (from <= cursor && cursor <= to && (!best || from > best.from)) best = { from, to };
+    };
+    LIQUID.lastIndex = 0;
+    let m;
+    while ((m = LIQUID.exec(text))) {
+      const from = m.index;
+      const to = from + m[0].length;
+      const name = m[1];
+      const top = stack.at(-1);
+      if (top && VERBATIM.includes(top.name)) {
+        // Inside {% raw %} / {% comment %} only its own end tag counts.
+        if (name === `end${top.name}`) consider(stack.pop().from, to);
+      } else if (name === undefined) {
+        consider(from, to); // {{ }}
+      } else if (BLOCKS.includes(name)) {
+        stack.push({ name, from });
+      } else if (name.startsWith('end') && BLOCKS.includes(name.slice(3))) {
+        const i = stack.findLastIndex((t) => t.name === name.slice(3));
+        // Anything opened after the matching tag was never closed, so it's dropped.
+        if (i !== -1) consider(stack.splice(i)[0].from, to);
+      } else if (!BRANCHES.includes(name)) {
+        consider(from, to);
+      }
     }
-    cm.state.slateHelperHighlight = st;
+    return best;
+  };
+
+  const currentLiquidRange = (cm) => {
+    const found = liquidStatement(cm.getValue(), cm.indexFromPos(cm.getCursor()));
+    return found && { from: cm.posFromIndex(found.from), to: cm.posFromIndex(found.to) };
+  };
+
+  const update = (cm) => {
+    cm.operation(() => {
+      const st = cm.state.slateHelperHighlight;
+      unshade(cm, st?.element, LINE_CLASS);
+      unshade(cm, st?.liquid, LIQUID_LINE_CLASS);
+      cm.state.slateHelperHighlight = null;
+      if (cm.somethingSelected()) return;
+      const element = currentRange(cm);
+      const liquid = SHP.option('source-element-highlight', 'liquid') && currentLiquidRange(cm);
+      cm.state.slateHelperHighlight = {
+        element: element && shade(cm, element, MARK_CLASS, LINE_CLASS),
+        liquid: liquid && shade(cm, liquid, LIQUID_MARK_CLASS, LIQUID_LINE_CLASS),
+      };
+    });
   };
 
   SHP.registerFeature('source-element-highlight', () => {
     SHP.injectStyle('source-element-highlight', `
-      .CodeMirror .${LINE_CLASS} { background: rgba(0, 0, 0, 0.045); }
-      .CodeMirror .${MARK_CLASS} { background: rgba(0, 0, 0, 0.07); border-radius: 2px; }
+      .CodeMirror .${LINE_CLASS} { background-color: rgba(0, 0, 0, 0.045); }
+      .CodeMirror .${MARK_CLASS} { background-color: rgba(0, 0, 0, 0.07); border-radius: 2px; }
+      /* A gradient image, not a color, so it layers over the element shading
+         when both land on the same line background or text span. */
+      .CodeMirror .${LIQUID_LINE_CLASS} { background-image: linear-gradient(rgba(30, 136, 229, 0.08), rgba(30, 136, 229, 0.08)); }
+      .CodeMirror .${LIQUID_MARK_CLASS} { background-image: linear-gradient(rgba(30, 136, 229, 0.15), rgba(30, 136, 229, 0.15)); border-radius: 2px; }
     `);
 
     SHP.onCodeMirror((cm) => {
+      // Once per editor, even if another page runtime (tests reload it) sees it too.
+      if (cm.state.slateHelperHighlightOn) return;
+      cm.state.slateHelperHighlightOn = true;
       let timer = null;
       cm.on('cursorActivity', () => {
         clearTimeout(timer);

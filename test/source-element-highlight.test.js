@@ -95,6 +95,51 @@ describe('source-element-highlight', () => {
     });
   });
 
+  describe('Liquid statement', () => {
+    const LIQUID_LINE = 'slate-helper-liquid-line';
+    const LIQUID_MARK = 'slate-helper-liquid-mark';
+    const liquidLines = (cm) => {
+      const out = [];
+      cm.eachLine((h) => { if (h.bgClass?.includes(LIQUID_LINE)) out.push(cm.getLineNumber(h)); });
+      return out;
+    };
+    const liquidText = (cm) => cm.getAllMarks().filter((m) => m.className === LIQUID_MARK).map((m) => {
+      const { from, to } = m.find();
+      return cm.getRange(from, to);
+    });
+
+    it('shades the innermost block alongside the element', async () => {
+      const cm = setupEditor(['source-element-highlight'], '');
+      const html = '<div>\n{% if a %}\n  {% for x in xs %}\n    <p>{{ x }} ‸</p>\n  {% endfor %}\n{% else %}\n{% endif %}\n</div>';
+      await moveTo(cm, html);
+      expect(liquidLines(cm)).toEqual([2, 3, 4]);
+      expect(markedText(cm)).toEqual(['<p>{{ x }} </p>']);
+    });
+
+    it('marks a lone tag, and a block on one line', async () => {
+      const cm = setupEditor(['source-element-highlight'], '');
+      await moveTo(cm, '{% if a %}\n<p>{% assign b = 1 ‸%}</p>\n{% endif %}');
+      expect(liquidText(cm)).toEqual(['{% assign b = 1 %}']);
+      await moveTo(cm, '<p>{%- if a -%}yes‸{% else %}no{% endif %}</p>');
+      expect(liquidText(cm)).toEqual(['{%- if a -%}yes{% else %}no{% endif %}']);
+    });
+
+    it('skips unclosed blocks and tags inside {% raw %}', async () => {
+      const cm = setupEditor(['source-element-highlight'], '');
+      await moveTo(cm, '{% if a %}\n{% for x in y %}\n‸\n{% endif %}');
+      expect(liquidLines(cm)).toEqual([0, 1, 2, 3]);
+      await moveTo(cm, '{% raw %}{% if ‸%}{% endraw %}');
+      expect(liquidText(cm)).toEqual(['{% raw %}{% if %}{% endraw %}']);
+    });
+
+    it('is off with the liquid option', async () => {
+      const cm = setupEditor(['source-element-highlight'], '', { 'source-element-highlight.liquid': false });
+      await moveTo(cm, '<p>{{ a‸ }}</p>');
+      expect(liquidText(cm)).toEqual([]);
+      expect(markedText(cm)).toEqual(['<p>{{ a }}</p>']);
+    });
+  });
+
   it('clears the highlight when text is selected', async () => {
     const cm = setupEditor(['source-element-highlight'], '<p>‸x</p>');
     await moveTo(cm, '<p>‸x‸</p>');

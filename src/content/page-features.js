@@ -106,7 +106,10 @@
     id: 'source-element-highlight',
     group: 'Source tools',
     name: 'Highlight current element',
-    description: 'Shades the element the cursor is in, from its opening tag to its closing tag. Inside <style>, shades the innermost CSS rule instead.',
+    description: 'Shades the element the cursor is in, from its opening tag to its closing tag. Inside <style>, shades the innermost CSS rule instead. The Liquid statement the cursor is in ({% if %} through {% endif %}, or a single {{ }} / {% %} tag) is also shaded light blue.',
+    options: [
+      opt('liquid', 'Also shade the current Liquid statement light blue'),
+    ],
   });
 
   page({
