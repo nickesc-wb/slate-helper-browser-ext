@@ -113,6 +113,13 @@
   });
 
   page({
+    id: 'source-liquid-colors',
+    group: 'Source tools',
+    name: 'Color Liquid syntax',
+    description: 'Colors the parts of {{ }} and {% %} tags in shades of blue: tag names, variables, properties, filters, operators, strings, literals and comments.',
+  });
+
+  page({
     id: 'source-triple-click',
     group: 'Source tools',
     name: 'Triple-click selects element text',

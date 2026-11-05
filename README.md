@@ -71,6 +71,7 @@ Every feature starts on. Your settings sync with your browser profile.
 | Find & replace | The Find and Replace toolbar buttons work in source view. Ctrl+F finds, Ctrl+H replaces |
 | Format button | Tidies the HTML from the toolbar or with Shift+Alt+F, without saving or closing |
 | Highlight current element | Shades the element around the cursor, or the CSS rule inside `<style>`. Also shades the Liquid statement around the cursor (`{% if %}` to `{% endif %}`, or one `{{ }}` tag) light blue |
+| Color Liquid syntax | Colors the parts of `{{ }}` and `{% %}` tags (tag names, variables, filters, strings…) in shades of blue |
 | Triple-click selects element text | Selects an element's text without its tags, or an attribute's value without its quotes |
 
 ### Source view: checks and docs
