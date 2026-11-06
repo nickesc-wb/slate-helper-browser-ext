@@ -55,6 +55,7 @@ Every feature starts on. Your settings sync with your browser profile.
 | Link dialog shortcuts | Adds an "Open in new tab" button. Tab from the URL field opens the Target tab |
 | Delete registrations in one step | Adds **Delete** to a registered form response's popup, so you don't have to cancel it, switch tabs and reopen it |
 | Impersonate on pick | Picking a record in an Impersonate dialog impersonates it |
+| Recent impersonations | Lists every record you've impersonated on this Slate site under the Record box, newest first, in a scrolling list. Click one to pick it, or × to remove it |
 
 ### Source view: typing
 

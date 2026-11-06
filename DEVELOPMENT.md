@@ -112,6 +112,11 @@ Settings live in `chrome.storage.sync`, so they follow the browser profile:
 { siteOverrides: { "host": "on" | "off" }, features: { "id": true | false, "id.option": true | false | "choice value" }, debug: false }
 ```
 
+Per-browser data lives in `chrome.storage.local` instead:
+
+- `dismissedRelease`: the release version whose update notice was closed (`update-toast`).
+- `impersonateRecents`: `{ "host": { "<scope>": [{ id, name, lines }] } }`, every record impersonated per Slate instance, most recent first, with no cap (about 150 bytes each, far under the 10 MB `storage.local` quota) (`impersonate-recents`). The scope is the Impersonate dialog's hidden `type` input (`person`, `application`, ...), so a dialog only offers records of its own kind. A record is added when Impersonate is pressed; `name` and `lines` (Ref, Major, DOB...) come from the lookup's dropdown item (`.suggest_item[data-id]`).
+
 ## Adding a feature
 
 ### DOM-only feature
