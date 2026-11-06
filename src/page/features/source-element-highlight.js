@@ -29,10 +29,12 @@
   };
 
   // A single-line range gets a text mark, a multi-line one a background per line.
+  // A mark spans several <span>s when the text has several tokens, so only its
+  // first and last span (-start / -end) get rounded corners.
   const shade = (cm, { from, to }, markClass, lineClass) => {
     const st = { mark: null, lines: [] };
     if (from.line === to.line) {
-      st.mark = cm.markText(from, to, { className: markClass });
+      st.mark = cm.markText(from, to, { className: markClass, startStyle: `${markClass}-start`, endStyle: `${markClass}-end` });
     } else {
       for (let l = from.line; l <= to.line; l++) st.lines.push(cm.addLineClass(l, 'background', lineClass));
     }
@@ -173,11 +175,13 @@
   SHP.registerFeature('source-element-highlight', () => {
     SHP.injectStyle('source-element-highlight', `
       .CodeMirror .${LINE_CLASS} { background-color: rgba(0, 0, 0, 0.045); }
-      .CodeMirror .${MARK_CLASS} { background-color: rgba(0, 0, 0, 0.07); border-radius: 2px; }
+      .CodeMirror .${MARK_CLASS} { background-color: rgba(0, 0, 0, 0.07); }
       /* A gradient image, not a color, so it layers over the element shading
          when both land on the same line background or text span. */
       .CodeMirror .${LIQUID_LINE_CLASS} { background-image: linear-gradient(rgba(30, 136, 229, 0.08), rgba(30, 136, 229, 0.08)); }
-      .CodeMirror .${LIQUID_MARK_CLASS} { background-image: linear-gradient(rgba(30, 136, 229, 0.15), rgba(30, 136, 229, 0.15)); border-radius: 2px; }
+      .CodeMirror .${LIQUID_MARK_CLASS} { background-image: linear-gradient(rgba(30, 136, 229, 0.15), rgba(30, 136, 229, 0.15)); }
+      .CodeMirror .${MARK_CLASS}-start, .CodeMirror .${LIQUID_MARK_CLASS}-start { border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
+      .CodeMirror .${MARK_CLASS}-end, .CodeMirror .${LIQUID_MARK_CLASS}-end { border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
     `);
 
     SHP.onCodeMirror((cm) => {
