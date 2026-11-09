@@ -21,6 +21,7 @@
   SH.registerFeature({
     id: 'impersonate-pick',
     group: 'Dialogs',
+    subgroup: 'Impersonate',
     name: 'Impersonate on pick',
     description: 'In an Impersonate dialog, picking a record impersonates it without pressing Impersonate.',
     defaultEnabled: true,

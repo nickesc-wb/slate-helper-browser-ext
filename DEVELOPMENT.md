@@ -135,6 +135,7 @@ Per-browser data lives in `chrome.storage.local` instead:
     id: 'my-feature',
     name: 'My feature',
     group: 'Dialogs',          // popup tab (see SH.GROUPS in core.js)
+    // subgroup: 'Coding',     // optional heading inside the tab (SH.SUBGROUPS)
     description: 'What it does, shown in the popup.',
     defaultEnabled: true,
     areas: ['admin'],          // or '*'
@@ -174,7 +175,7 @@ Per-browser data lives in `chrome.storage.local` instead:
 
 - Make `onDomChange` callbacks idempotent. They run, debounced, after DOM mutations.
 - Use timers, not `requestAnimationFrame`, for that kind of work: rAF doesn't run in hidden tabs.
-- The popup shows one tab per group in `SH.GROUPS` that has features (plus *Other* for features without a known group). If a new group's name would make the tabs wrap, give it a shorter label in `TAB_LABELS` in `src/popup/popup.js`.
+- The popup shows one tab per group in `SH.GROUPS` that has features (plus *Other* for features without a known group). Keep the names short enough that the tabs fit on one row. A feature's optional `subgroup` puts it in a card under that heading inside its tab, in the order of `SH.SUBGROUPS[group]`; features without one go last, with no heading.
 
 ## Tests
 

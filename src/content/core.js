@@ -20,7 +20,8 @@
    *   defaultEnabled: boolean
    *   areas:          '*' or any of ['admin', 'portal', 'apply', 'other']
    *   init(ctx):      called once when the page is a Slate page
-   *   group:          popup section heading
+   *   group:          popup tab (SH.GROUPS)
+   *   subgroup:       optional heading inside the tab (SH.SUBGROUPS)
    *   options:        optional sub-toggles: [{ id, name, defaultEnabled }],
    *                   or choices shown as a select:
    *                   [{ id, name, choices: [{ value, label }], defaultValue }];
@@ -33,7 +34,13 @@
   SH.getSettings = () => chrome.storage.sync.get(SH.DEFAULT_SETTINGS);
 
   // Popup section order. Features without a group go last.
-  SH.GROUPS = ['Dialogs', 'Source typing', 'Source tools', 'Source checks & docs', 'Query builder', 'Portal editor', 'Extension'];
+  SH.GROUPS = ['Dialogs', 'Editing', 'Utilities', 'Extension'];
+
+  // Headings inside a tab, in order. Features without a subgroup go last.
+  SH.SUBGROUPS = {
+    Dialogs: ['Editors', 'Impersonate', 'Forms & queries'],
+    Editing: ['Tools', 'Coding', 'Checks'],
+  };
 
   // Libraries in src/vendor/ that page features may load on demand (SHP.load).
   // Keep in sync with VENDOR_SCRIPTS in background.js.

@@ -13,6 +13,7 @@
   page({
     id: 'editor-dialog-size',
     group: 'Dialogs',
+    subgroup: 'Editors',
     name: 'Dialog size',
     description: 'Better sizing for Slate dialogs.',
     options: [
@@ -25,6 +26,7 @@
   page({
     id: 'editor-keep-open',
     group: 'Dialogs',
+    subgroup: 'Editors',
     name: 'Keep editor open after Save',
     description: 'Save in a WYSIWYG editor dialog saves without closing it. Adds a Save & Close button for the old behavior.',
   });
@@ -32,6 +34,7 @@
   page({
     id: 'link-dialog',
     group: 'Dialogs',
+    subgroup: 'Editors',
     name: 'Link dialog shortcuts',
     description: 'Shortcuts in the WYSIWYG link dialog.',
     options: [
@@ -43,13 +46,15 @@
   page({
     id: 'form-response-delete',
     group: 'Dialogs',
+    subgroup: 'Forms & queries',
     name: 'Delete registrations in one step',
     description: 'A Delete button in a registered form response\'s popup cancels and deletes it, without switching to the Cancelled tab and reopening it.',
   });
 
   page({
     id: 'source-indent',
-    group: 'Source typing',
+    group: 'Editing',
+    subgroup: 'Coding',
     name: 'Indentation',
     description: 'How Tab, Backspace, Enter and paste handle indentation.',
     options: [
@@ -63,7 +68,8 @@
 
   page({
     id: 'source-autoclose',
-    group: 'Source typing',
+    group: 'Editing',
+    subgroup: 'Coding',
     name: 'Auto-close pairs',
     description: 'Typing an opening character adds the closing one.',
     options: [
@@ -74,7 +80,8 @@
 
   page({
     id: 'source-autocomplete',
-    group: 'Source typing',
+    group: 'Editing',
+    subgroup: 'Coding',
     name: 'Autocomplete',
     description: 'Suggestions as you type. Tab or Enter accepts, Esc closes.',
     options: [
@@ -90,21 +97,24 @@
 
   page({
     id: 'source-find-replace',
-    group: 'Source tools',
+    group: 'Editing',
+    subgroup: 'Tools',
     name: 'Find & replace',
     description: 'The Find/Replace toolbar buttons work in source view. Ctrl+F finds, Ctrl+H replaces.',
   });
 
   page({
     id: 'source-format',
-    group: 'Source tools',
+    group: 'Editing',
+    subgroup: 'Tools',
     name: 'Format button',
     description: 'A Format button in the editor toolbar (and Shift+Alt+F) tidies the HTML the same way reopening the editor does, without saving or closing.',
   });
 
   page({
     id: 'source-element-highlight',
-    group: 'Source tools',
+    group: 'Editing',
+    subgroup: 'Tools',
     name: 'Highlight current element',
     description: 'Shades the element the cursor is in, from its opening tag to its closing tag. Inside <style>, shades the innermost CSS rule instead. The Liquid statement the cursor is in ({% if %} through {% endif %}, or a single {{ }} / {% %} tag) is also shaded light blue.',
     options: [
@@ -114,21 +124,24 @@
 
   page({
     id: 'source-liquid-colors',
-    group: 'Source tools',
+    group: 'Editing',
+    subgroup: 'Tools',
     name: 'Color Liquid syntax',
     description: 'Colors the parts of {{ }} and {% %} tags in shades of blue: tag names, variables, properties, filters, operators, strings, literals and comments.',
   });
 
   page({
     id: 'source-triple-click',
-    group: 'Source tools',
+    group: 'Editing',
+    subgroup: 'Coding',
     name: 'Triple-click selects element text',
     description: 'Triple-clicking text selects everything inside the element it\'s in (a paragraph, heading, <strong>, <a>…) but not that element\'s tags, even when they\'re on the same line. In a tag, triple-clicking an attribute\'s value selects the value without its quotes.',
   });
 
   page({
     id: 'source-lint',
-    group: 'Source checks & docs',
+    group: 'Editing',
+    subgroup: 'Checks',
     name: 'Lint HTML, CSS and JavaScript',
     description: 'Underlines problems: HTML tags that don\'t pair up, CSS syntax errors and unknown properties, JavaScript syntax errors. Hover an underline for details. Liquid is skipped.',
     options: [
@@ -140,7 +153,8 @@
 
   page({
     id: 'source-docs',
-    group: 'Source checks & docs',
+    group: 'Editing',
+    subgroup: 'Tools',
     name: 'Hover docs',
     description: 'Rest the mouse on an HTML tag or attribute, or a CSS property or value, to see its MDN description, browser support and a link to MDN.',
     options: [
@@ -161,7 +175,8 @@
 
   page({
     id: 'source-liquid-check',
-    group: 'Source checks & docs',
+    group: 'Editing',
+    subgroup: 'Checks',
     name: 'Check Liquid tags',
     description: 'Underlines Liquid block tags that don\'t pair up, like an {% if %} with no {% endif %}. Hover an underline for details.',
   });

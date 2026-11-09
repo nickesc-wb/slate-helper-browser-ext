@@ -16,16 +16,20 @@ const STATE = {
   override: 'auto',
   active: true,
   detection: { isSlate: true, area: 'admin', score: 6, threshold: 3, signals: [] },
-  groups: ['Dialogs', 'Source typing', 'Source tools', 'Source checks & docs', 'Query builder', 'Extension'],
+  groups: ['Dialogs', 'Editing', 'Utilities', 'Extension'],
+  subgroups: { Editing: ['Checks', 'Coding', 'Tools'] },
   features: [
     feature('link-dialog', 'Dialogs'),
-    feature('source-indent', 'Source typing', [{ id: 'tab', name: 'Tab indents', enabled: true }]),
-    feature('source-docs', 'Source checks & docs', [{
+    { ...feature('source-indent', 'Editing', [{ id: 'tab', name: 'Tab indents', enabled: true }]), subgroup: 'Coding' },
+    { ...feature('source-docs', 'Editing', [{
       id: 'view', name: 'Detail', value: 'compact',
       choices: [{ value: 'compact', label: 'Compact' }, { value: 'verbose', label: 'Verbose' }],
-    }]),
-    feature('dblclick-picker', 'Query builder'),
-    feature('instance-badge', 'Extension'),
+    }]), subgroup: 'Checks' },
+    feature('dblclick-picker', 'Dialogs'),
+    { ...feature('source-format', 'Editing'), subgroup: 'Tools' },
+    feature('source-loose', 'Editing'),
+    feature('instance-badge', 'Utilities'),
+    feature('update-toast', 'Extension'),
     feature('mystery', 'Other'),
   ],
 };
@@ -65,10 +69,24 @@ describe('popup', () => {
 
   it('puts each group with features on its own tab, Other last', async () => {
     await open();
-    expect(tabs().map((t) => t.title)).toEqual(['Dialogs', 'Source typing', 'Source checks & docs', 'Query builder', 'Extension', 'Other']);
-    expect(tabs().map((t) => t.textContent)).toEqual(['Dialogs', 'Typing', 'Checks', 'Queries', 'Extension', 'Other']);
-    const source = panelOf(tabNamed('Source typing'));
-    expect([...source.querySelectorAll('.name')].map((n) => n.textContent)).toEqual(['source-indent']);
+    expect(tabs().map((t) => t.textContent)).toEqual(['Dialogs', 'Editing', 'Utilities', 'Extension', 'Other']);
+    const utilities = panelOf(tabNamed('Utilities'));
+    expect([...utilities.querySelectorAll('.name')].map((n) => n.textContent)).toEqual(['instance-badge']);
+  });
+
+  it('puts features under their subgroup headings inside a tab', async () => {
+    await open();
+    const editing = panelOf(tabNamed('Editing'));
+    const sections = Object.fromEntries([...editing.querySelectorAll('.card')].map((card) => [
+      card.previousElementSibling?.matches('.subgroup') ? card.previousElementSibling.textContent : '(none)',
+      [...card.querySelectorAll('.name')].map((n) => n.textContent),
+    ]));
+    expect(sections).toEqual({
+      Checks: ['source-docs'],
+      Coding: ['source-indent'],
+      Tools: ['source-format'],
+      '(none)': ['source-loose'],
+    });
   });
 
   it('opens on the first tab and shows only its features', async () => {
@@ -80,12 +98,12 @@ describe('popup', () => {
 
   it('switches tabs on click and remembers the last one', async () => {
     await open();
-    tabNamed('Source typing').click();
-    expect(selected().title).toBe('Source typing');
-    expect(visiblePanels()).toEqual([panelOf(tabNamed('Source typing'))]);
+    tabNamed('Editing').click();
+    expect(selected().title).toBe('Editing');
+    expect(visiblePanels()).toEqual([panelOf(tabNamed('Editing'))]);
 
     await open();
-    expect(selected().title).toBe('Source typing');
+    expect(selected().title).toBe('Editing');
   });
 
   it('falls back to the first tab when the remembered group is gone', async () => {
@@ -111,20 +129,25 @@ describe('popup', () => {
 
   it('saves feature toggles and options from any tab', async () => {
     const stored = await open();
-    const source = panelOf(tabNamed('Source typing'));
-    tabNamed('Source typing').click();
+    const editing = panelOf(tabNamed('Editing'));
+    tabNamed('Editing').click();
 
-    source.querySelector('.switch input').click();
+    const indent = [...editing.querySelectorAll('.feature')].find((f) => f.querySelector('.name').textContent === 'source-indent');
+    indent.querySelector('.switch input').click();
     await sleep(0);
     expect(stored.features['source-indent']).toBe(false);
-    expect(source.querySelector('.option input').disabled).toBe(true);
+    expect(indent.querySelector('.option input').disabled).toBe(true);
 
-    tabNamed('Source checks & docs').click();
-    const select = panelOf(selected()).querySelector('select');
+    const select = editing.querySelector('select');
     select.value = 'verbose';
     select.dispatchEvent(new Event('change'));
     await sleep(0);
     expect(stored.features['source-docs.view']).toBe('verbose');
+
+    tabNamed('Utilities').click();
+    panelOf(selected()).querySelector('.switch input').click();
+    await sleep(0);
+    expect(stored.features['instance-badge']).toBe(false);
     expect(document.getElementById('reload-note').hidden).toBe(false);
   });
 });

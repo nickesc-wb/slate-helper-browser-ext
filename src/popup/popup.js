@@ -3,15 +3,6 @@ const DEFAULT_SETTINGS = { siteOverrides: {}, features: {}, debug: false };
 const EXPANDED_KEY = 'slate-helper-popup-expanded'; // which features show their options
 const TAB_KEY = 'slate-helper-popup-tab'; // last-opened feature group
 
-// Shorter tab names so every group's tab fits on one row; the rest use the
-// group name as is.
-const TAB_LABELS = {
-  'Source typing': 'Typing',
-  'Source tools': 'Tools',
-  'Source checks & docs': 'Checks',
-  'Query builder': 'Queries',
-  'Portal editor': 'Portals',
-};
 const AREA_LABELS ={ admin: 'Admin', apply: 'Application', portal: 'Portal', other: 'Other page' };
 const SIGNAL_LABELS = {
   'technolutions-host': 'technolutions.net address',
@@ -265,17 +256,28 @@ $('check-updates').addEventListener('click', async () => {
     const inGroup = state.features.filter((f) => f.group === group);
     if (!inGroup.length) return [];
     const i = $('tabs').children.length;
-    const tab = el('button', 'tab', TAB_LABELS[group] || group);
+    const tab = el('button', 'tab', group);
     tab.type = 'button';
     tab.title = group;
     tab.id = `tab-${i}`;
     tab.setAttribute('role', 'tab');
     tab.setAttribute('aria-controls', `panel-${i}`);
-    const panel = el('ul', 'card');
+    const panel = el('div', 'panel');
     panel.id = `panel-${i}`;
     panel.setAttribute('role', 'tabpanel');
     panel.setAttribute('aria-labelledby', tab.id);
-    inGroup.forEach((f) => panel.append(renderFeature(f)));
+    // A card per subgroup under its heading, in SH.SUBGROUPS order; features
+    // without one go last, in a card with no heading.
+    const card = (list) => {
+      const ul = el('ul', 'card');
+      list.forEach((f) => ul.append(renderFeature(f)));
+      return ul;
+    };
+    const subgroups = [...new Set([...(state.subgroups?.[group] || []), ...inGroup.map((f) => f.subgroup)])]
+      .filter((s) => s && inGroup.some((f) => f.subgroup === s));
+    for (const s of subgroups) panel.append(el('h2', 'subgroup', s), card(inGroup.filter((f) => f.subgroup === s)));
+    const rest = inGroup.filter((f) => !subgroups.includes(f.subgroup));
+    if (rest.length) panel.append(card(rest));
     $('tabs').append(tab);
     $('features').append(panel);
     return [{ group, tab, panel }];

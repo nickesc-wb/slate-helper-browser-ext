@@ -53,19 +53,14 @@ Every feature starts on. Your settings sync with your browser profile.
 | Dialog size | Keeps dialogs inside the window, opens editor dialogs at 85% of the window height, and lets you resize from any edge or corner |
 | Keep editor open after Save | Save and Ctrl+S save without closing the editor dialog. A **Save & Close** button keeps the old behavior |
 | Link dialog shortcuts | Adds an "Open in new tab" button. Tab from the URL field opens the Target tab |
-| Delete registrations in one step | Adds **Delete** to a registered form response's popup, so you don't have to cancel it, switch tabs and reopen it |
 | Impersonate on pick | Picking a record in an Impersonate dialog impersonates it |
 | Recent impersonations | Lists every record you've impersonated on this Slate site under the Record box, newest first, in a scrolling list. Click one to pick it, or × to remove it |
+| Double-click to pick query parts | In the query builder's Insert Query Part dialogs, double-click an export or filter to select it and continue |
+| Delete registrations in one step | Adds **Delete** to a registered form response's popup, so you don't have to cancel it, switch tabs and reopen it |
 
-### Source view: typing
+### Editing
 
-| Feature | What it does |
-|---|---|
-| Indentation | Tab inserts 2 spaces, Backspace removes an indent level, Enter between tags splits and indents, and pastes re-indent |
-| Auto-close pairs | Typing `( [ { " '` adds the closing character. Quotes only close in tags, `<style>`, `<script>` and Liquid |
-| Autocomplete | Suggests HTML tags, attribute snippets, Liquid keywords, filters and variables, and CSS properties and values with their docs |
-
-### Source view: tools
+In an editor's source view.
 
 | Feature | What it does |
 |---|---|
@@ -73,34 +68,27 @@ Every feature starts on. Your settings sync with your browser profile.
 | Format button | Tidies the HTML from the toolbar or with Shift+Alt+F, without saving or closing |
 | Highlight current element | Shades the element around the cursor, or the CSS rule inside `<style>`. Also shades the Liquid statement around the cursor (`{% if %}` to `{% endif %}`, or one `{{ }}` tag) light blue |
 | Color Liquid syntax | Colors the parts of `{{ }}` and `{% %}` tags (tag names, variables, filters, strings…) in shades of blue |
-| Triple-click selects element text | Selects an element's text without its tags, or an attribute's value without its quotes |
-
-### Source view: checks and docs
-
-| Feature | What it does |
-|---|---|
-| Lint | Underlines HTML tags that don't pair up, CSS errors and unknown properties, and JavaScript errors. Hover for details |
 | Hover docs | Hover an HTML tag or attribute, or a CSS property or value, for its MDN docs. Arrows in the box show more or less detail |
+| Indentation | Tab inserts 2 spaces, Backspace removes an indent level, Enter between tags splits and indents, and pastes re-indent |
+| Auto-close pairs | Typing `( [ { " '` adds the closing character. Quotes only close in tags, `<style>`, `<script>` and Liquid |
+| Autocomplete | Suggests HTML tags, attribute snippets, Liquid keywords, filters and variables, and CSS properties and values with their docs |
+| Triple-click selects element text | Selects an element's text without its tags, or an attribute's value without its quotes |
+| Lint | Underlines HTML tags that don't pair up, CSS errors and unknown properties, and JavaScript errors. Hover for details |
 | Check Liquid tags | Underlines `{% if %}`, `{% for %}` and other block tags with no end tag, and end tags with nothing to close |
 
-### Query builder
+### Utilities
 
 | Feature | What it does |
 |---|---|
-| Double-click to pick | Double-click an export or filter to select it and continue |
-
-### Portal editor
-
-| Feature | What it does |
-|---|---|
-| Insert between blocks | Hover the space between two blocks, or above the first or below the last, for a **+** button. Click it and pick a block to add it right there. Also widens the gap between blocks a little |
+| Insert between blocks | In the portal editor, hover the space between two blocks, or above the first or below the last, for a **+** button. Click it and pick a block to add it right there. Also widens the gap between blocks a little |
+| Click to copy record number | On a record, click the record number at the top right to copy it. A hint below it says when it's copied |
+| Instance badge | A corner badge with the client's hostname and Slate area. Click it to hide it |
+| Client favicon in header | Shows the client's favicon left of the Slate logo |
 
 ### Extension
 
 | Feature | What it does |
 |---|---|
-| Instance badge | A corner badge with the client's hostname and Slate area. Click it to hide it |
-| Client favicon in header | Shows the client's favicon left of the Slate logo |
 | Update notice | Shows a notice when a new release is out |
 
 ## Development

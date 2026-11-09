@@ -5,7 +5,7 @@
 
   SH.registerFeature({
     id: 'instance-badge',
-    group: 'Extension',
+    group: 'Utilities',
     name: 'Instance badge',
     description: 'Corner badge with the client hostname and Slate area. Click to hide.',
     defaultEnabled: true,

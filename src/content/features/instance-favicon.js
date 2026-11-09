@@ -55,7 +55,7 @@
 
   SH.registerFeature({
     id: 'instance-favicon',
-    group: 'Extension',
+    group: 'Utilities',
     name: 'Client favicon in header',
     description: "Shows the instance's favicon to the left of the Slate logo. Nothing shows if the instance uses Slate's default icon.",
     defaultEnabled: true,

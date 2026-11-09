@@ -74,9 +74,9 @@
 
   SH.registerFeature({
     id: 'portal-insert-block',
-    group: 'Portal editor',
+    group: 'Utilities',
     name: 'Insert between blocks',
-    description: 'Hover the space between two blocks (or above the first or below the last) for a + button. Click it to pick a block from the palette and add it right there. Also widens the gap between blocks a little.',
+    description: 'In the portal editor, hover the space between two blocks (or above the first or below the last) for a + button. Click it to pick a block from the palette and add it right there. Also widens the gap between blocks a little.',
     defaultEnabled: true,
     areas: ['admin'],
     init() {

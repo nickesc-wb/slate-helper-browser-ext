@@ -40,6 +40,7 @@
   SH.registerFeature({
     id: 'impersonate-recents',
     group: 'Dialogs',
+    subgroup: 'Impersonate',
     name: 'Recent impersonations',
     description: 'In an Impersonate dialog, lists every record you have impersonated on this Slate instance, most recent first, under the Record lookup. Click one to pick it.',
     defaultEnabled: true,

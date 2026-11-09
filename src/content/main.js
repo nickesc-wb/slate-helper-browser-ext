@@ -21,6 +21,7 @@
   const features = SH.features.map((f) => ({
     id: f.id,
     group: f.group || 'Other',
+    subgroup: f.subgroup,
     name: f.name,
     description: f.description,
     enabled: settings.features[f.id] ?? f.defaultEnabled,
@@ -39,7 +40,7 @@
   const optionValues = {};
   features.forEach((f) => f.options.forEach((o) => { optionValues[SH.optionKey(f.id, o.id)] = o.choices ? o.value : o.enabled; }));
 
-  SH.state = { host, override, active, detection, features, groups: SH.GROUPS };
+  SH.state = { host, override, active, detection, features, groups: SH.GROUPS, subgroups: SH.SUBGROUPS };
   SH.log('detection', detection, 'override', override, 'active', active);
   chrome.runtime.sendMessage({ type: 'slate-helper:status', active }).catch(() => {});
 

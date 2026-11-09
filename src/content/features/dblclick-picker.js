@@ -16,9 +16,10 @@
 
   SH.registerFeature({
     id: 'dblclick-picker',
-    group: 'Query builder',
-    name: 'Double-click to pick',
-    description: 'In the query builder, double-click an export or filter to select it and continue.',
+    group: 'Dialogs',
+    subgroup: 'Forms & queries',
+    name: 'Double-click to pick query parts',
+    description: "In the query builder's Insert Query Part dialogs (exports, filters...), double-click an item to select it and press Continue in one step.",
     defaultEnabled: true,
     areas: ['admin'],
     init() {
