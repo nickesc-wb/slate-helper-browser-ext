@@ -89,6 +89,12 @@ Every feature starts on. Your settings sync with your browser profile.
 |---|---|
 | Double-click to pick | Double-click an export or filter to select it and continue |
 
+### Portal editor
+
+| Feature | What it does |
+|---|---|
+| Insert between blocks | Hover the space between two blocks, or above the first or below the last, for a **+** button. Click it and pick a block to add it right there. Also widens the gap between blocks a little |
+
 ### Extension
 
 | Feature | What it does |

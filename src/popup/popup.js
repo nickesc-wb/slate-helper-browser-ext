@@ -10,6 +10,7 @@ const TAB_LABELS = {
   'Source tools': 'Tools',
   'Source checks & docs': 'Checks',
   'Query builder': 'Queries',
+  'Portal editor': 'Portals',
 };
 const AREA_LABELS ={ admin: 'Admin', apply: 'Application', portal: 'Portal', other: 'Other page' };
 const SIGNAL_LABELS = {

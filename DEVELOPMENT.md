@@ -104,6 +104,10 @@ Notes:
 - `.gitattributes` keeps `*.cmd` and `*.ps1` at CRLF so the zip built on Linux has Windows line endings.
 - To try the host without a browser, send it a length-prefixed JSON message (`{"type":"ping"}`) on stdin, the way Chrome does.
 
+### Portal editor insert
+
+`portal-insert-block` (isolated world) reuses Slate's own palette click instead of creating blocks itself. In the portal editor each column is a jQuery UI sortable `.part_rows_container`, and the palette is `.toolbox_container > .toolbox_element[data-clickable="1"]`. Clicking a palette item appends a placeholder `<div id="part_<timestamp>">` to the *first* container and opens the block's editor dialog, which refers to the placeholder by id. The feature clicks the real palette item, moves the new placeholder into the hovered gap, and leaves the rest to Slate: when the block is saved Slate renders it in place of the placeholder and posts `save_part_order` with the page's order, so the position sticks (checked on a live portal). Cancel removes the placeholder as usual. Gaps are computed per container, so layouts with several columns work the same way. The menu is a fresh copy of the palette each time it opens, so it shows whatever block types that editor offers.
+
 ### Settings
 
 Settings live in `chrome.storage.sync`, so they follow the browser profile:

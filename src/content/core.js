@@ -33,7 +33,7 @@
   SH.getSettings = () => chrome.storage.sync.get(SH.DEFAULT_SETTINGS);
 
   // Popup section order. Features without a group go last.
-  SH.GROUPS = ['Dialogs', 'Source typing', 'Source tools', 'Source checks & docs', 'Query builder', 'Extension'];
+  SH.GROUPS = ['Dialogs', 'Source typing', 'Source tools', 'Source checks & docs', 'Query builder', 'Portal editor', 'Extension'];
 
   // Libraries in src/vendor/ that page features may load on demand (SHP.load).
   // Keep in sync with VENDOR_SCRIPTS in background.js.
