@@ -61,6 +61,7 @@
         "src/content/features/impersonate-pick.js",
         "src/content/features/impersonate-recents.js",
         "src/content/features/portal-insert-block.js",
+        "src/content/features/record-copy-number.js",
         "src/content/features/update-toast.js",
         "src/content/page-features.js",
         "src/content/main.js"
