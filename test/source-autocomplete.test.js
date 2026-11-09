@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { provideSourceTools, setupEditor, show } from './helpers/codemirror.js';
+import { docsBox, docsLevels, docsParts, shownDocs } from './helpers/docs.js';
 import { sleep } from './helpers/load.js';
 
 const editor = (value, options) => setupEditor(['source-autocomplete'], value, options);
@@ -114,10 +115,9 @@ describe('source-autocomplete: CSS', () => {
     return cm;
   };
 
-  it('suggests properties as you type, with docs', async () => {
+  it('suggests properties as you type', async () => {
     const cm = await cssEditor('<style>\n  .a { backg‸ }\n</style>');
     expect(labels(cm)).toContain('background-color');
-    expect(hints(cm).list.find((c) => c.displayText === 'background-color').docs.value).toContain('MDN Reference');
   });
 
   it('accepting a property adds the colon and semicolon and puts the cursor between', async () => {
@@ -150,12 +150,17 @@ describe('source-autocomplete: CSS', () => {
     const item = list.appendChild(document.createElement('li'));
     document.body.appendChild(list);
     window.CodeMirror.signal(data, 'select', data.list.find((c) => c.displayText === label), item);
-    return document.querySelector('.slate-helper-tooltip').innerHTML;
+    return document.querySelector('.slate-helper-tooltip section').innerHTML;
   };
 
-  it('shows docs beside the list at the level the Hover docs options say', async () => {
-    const shown = (html) => html.match(/<div class="slate-helper-docs-level" data-level="(\w+)">/)[1];
-    expect(shown(docsShownFor(await cssEditor('<style>\n  .a { backg‸ }\n</style>'), 'background-color'))).toBe('standard');
+  it('shows the property\'s docs beside the list, at the level the Hover docs options say', async () => {
+    const shown = (html) => docsLevels(docsBox(html)).find((l) => l.shown).name;
+    const html = docsShownFor(await cssEditor('<style>\n  .a { backg‸ }\n</style>'), 'background-color');
+    expect(shown(html)).toBe('standard');
+    const docs = docsParts(shownDocs(docsBox(html)));
+    expect(docs.description).not.toBe('');
+    expect(docs.mdnLinks.some((href) => href.endsWith('/background-color'))).toBe(true);
+
     const compact = await cssEditor('<style>\n  .a { backg‸ }\n</style>', { 'source-docs.view': 'compact' });
     expect(shown(docsShownFor(compact, 'background-color'))).toBe('compact');
   });

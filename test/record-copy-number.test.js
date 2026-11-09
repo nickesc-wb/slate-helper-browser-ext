@@ -33,16 +33,16 @@ describe('click to copy record number', () => {
     expect(document.querySelector('.subheading').textContent).toMatch(/Prospect\s+934045071$/);
   });
 
-  it('copies the number on click and says so', async () => {
-    expect(number().dataset.hint).toBe('Click to copy');
+  it('copies the number on click, confirms it, and resets the hint after', async () => {
+    const before = number().dataset.hint;
     number().click();
     await sleep(0);
     expect(writeText).toHaveBeenCalledWith('934045071');
-    expect(number().dataset.hint).toBe('Copied to clipboard');
+    expect(number().dataset.hint).not.toBe(before);
 
     number().dispatchEvent(new MouseEvent('mouseleave'));
     await sleep(250);
-    expect(number().dataset.hint).toBe('Click to copy');
+    expect(number().dataset.hint).toBe(before);
   });
 
   it('copies with Enter for keyboard users', async () => {

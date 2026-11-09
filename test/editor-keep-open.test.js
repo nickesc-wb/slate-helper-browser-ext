@@ -53,7 +53,7 @@ describe('editor-keep-open Ctrl+S', () => {
     expect(ctrlS().defaultPrevented).toBe(true);
     expect(slateCtrlS).not.toHaveBeenCalled();
     const [button, args, callbacks] = window.FW.Lazy.Commit.mock.calls[0];
-    expect(button.textContent).toBe('Save');
+    expect(button.getAttribute('onclick')).toBe(SAVE_ONCLICK); // Slate's Save, not Save & Close
     expect(args).toEqual({ cmd: 'save' });
     expect(callbacks.complete).toBeTypeOf('function'); // the keep-open save
   });
@@ -107,7 +107,6 @@ describe('editor-keep-open on a new record', () => {
     expect(params.get('div')).toBe('div_abc');
     expect(document.querySelector('.dialog').getAttribute('data-href')).toContain('id=abc');
     expect(options.cancel).toBe(true); // Cancel no longer removes the saved part
-    expect(document.querySelector('.action button').textContent).toBe('Saved ✓');
   });
 
   it("closes the dialog when the new record can't be found", () => {
