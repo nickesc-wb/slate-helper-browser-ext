@@ -94,6 +94,7 @@
       opt('cssProperties', 'CSS properties and values in <style>, with docs'),
       opt('cssSnippets', 'CSS snippets in <style> (@media queries, @font-face, !important)'),
       opt('jsSnippets', 'JavaScript snippets in <script> (arrow function, ready, console.log)'),
+      opt('jsSuggestions', 'JavaScript in <script>: variables, DOM, jQuery and built-ins, with docs'),
     ],
   });
 
@@ -158,18 +159,19 @@
     group: 'Editing',
     subgroup: 'Tools',
     name: 'Hover docs',
-    description: 'Rest the mouse on an HTML tag or attribute, or a CSS property or value, to see its MDN description, browser support and a link to MDN.',
+    description: 'Rest the mouse on an HTML tag or attribute, a CSS property or value, or a JavaScript name, to see its MDN description, browser support and a link to MDN.',
     options: [
       opt('html', 'HTML tags and attributes'),
       opt('css', 'CSS in <style>'),
+      opt('js', 'JavaScript in <script> (its signature or type, and docs)'),
       choice('view', 'Detail (also beside the suggestion list)', [
         ['compact', 'Compact: first sentence'],
-        ['standard', 'Standard: plus CSS syntax'],
+        ['standard', 'Standard: plus syntax'],
         ['verbose', 'Verbose: everything'],
       ], 'standard'),
       opt('description', 'Description'),
       opt('support', 'Browser support (Baseline)'),
-      opt('syntax', 'CSS syntax'),
+      opt('syntax', 'Syntax (CSS value grammar, JavaScript signatures)'),
       opt('selector', 'CSS selector specificity'),
       opt('links', 'Links to MDN and other references'),
     ],

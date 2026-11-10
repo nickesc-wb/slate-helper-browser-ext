@@ -424,11 +424,81 @@
     return tools;
   });
 
+  // --- JavaScript ----------------------------------------------------------------------
+  // TypeScript's language service (src/vendor/js-tools.js) reads the page's
+  // JavaScript as one file: every <script> shares one global scope, so they're
+  // all in it, with Liquid masked and everything else blanked (offsets match
+  // the editor's). It knows the DOM, ES2023 and jQuery from their type
+  // definitions, whose comments are the docs (with MDN links).
+
+  const jsText = (text) => embed(maskLiquid(text), regions(text).filter((r) => r.lang === 'javascript'));
+  const partsText = (parts) => (parts || []).map((p) => p.text).join('');
+
+  // Docs as the markdown docsHtml reads: "Syntax:" (the signature or type),
+  // then the description, @param list and links ("[MDN Reference](…)").
+  const jsDocs = (displayParts, documentation, tags = []) => {
+    const blocks = [];
+    // "(method) ParentNode.querySelector(…)": the kind is shown elsewhere.
+    const signature = partsText(displayParts).trim().replace(/^\([\w ]+\)\s+/, '');
+    if (signature) blocks.push(`Syntax: ${signature.replace(/\s*\n\s*/g, ' ')}`);
+    const doc = partsText(documentation).trim();
+    const deprecated = tags.find((t) => t.name === 'deprecated');
+    if (deprecated) blocks.push(`**Deprecated.** ${partsText(deprecated.text)}`.trim());
+    if (doc) blocks.push(...doc.split(/\n\s*\n/).map((b) => b.replace(/\s*\n\s*/g, ' ')));
+    const params = tags.filter((t) => t.name === 'param' && t.text?.length);
+    if (params.length && doc) {
+      blocks.push(params.map((t) => {
+        const [name, ...rest] = partsText(t.text).split(/\s+/);
+        return `* \`${name}\` ${rest.join(' ')}`.trim();
+      }).join('\n'));
+    }
+    return blocks.length ? { kind: 'markdown', value: blocks.join('\n\n') } : null;
+  };
+
+  const createJs = ({ createService }) => {
+    const { service, file, setText } = createService();
+    const at = (text, fn) => {
+      setText(jsText(text));
+      return fn();
+    };
+    return {
+      /** TypeScript's completions at index, or undefined. */
+      completions: (text, index) => at(text, () => service.getCompletionsAtPosition(file, index, {
+        includeCompletionsWithInsertText: true,
+      })),
+      /** Docs (markdown, for docsHtml) for a completion entry, or null. */
+      entryDocs: (text, index, entry) => at(text, () => {
+        const d = service.getCompletionEntryDetails(file, index, entry.name, {}, entry.source, {}, entry.data);
+        return d ? jsDocs(d.displayParts, d.documentation, d.tags) : null;
+      }),
+      /** Docs (markdown, for docsHtml) for what's at index, or null. */
+      hover: (text, index) => at(text, () => {
+        const q = service.getQuickInfoAtPosition(file, index);
+        return q ? jsDocs(q.displayParts, q.documentation, q.tags) : null;
+      }),
+    };
+  };
+
+  /**
+   * The JavaScript service (src/vendor/js-tools.js), loaded the first time a
+   * feature asks. SHP.cm.js is set once it's in. The first query reads all the
+   * type definitions (a few hundred ms), so that happens right after loading,
+   * not on the first keystroke.
+   */
+  const loadJsTools = () => SHP.load('js-tools').then((tools) => {
+    if (!SHP.cm.js) {
+      SHP.cm.js = createJs(tools);
+      setTimeout(() => SHP.cm.js.completions('<script>document.</script>', 17), 0);
+    }
+    return SHP.cm.js;
+  });
+
   SHP.cm = {
     leadingWhitespace, context,
     liquidSpans, maskLiquid, regions, embed,
     markdown, escapeHtml, docsHtml, docsSettings, showTooltip, hideTooltip, onHover,
     tools: null, loadTools,
+    js: null, loadJsTools, jsDocs,
   };
 
   /** The CKEditor instance that owns a .cke element. */

@@ -13,6 +13,10 @@
 //    and "!important" after "!"
 //  - JavaScript snippets inside <script> (arrow function, ready handlers,
 //    console.log) once two letters of their key are typed
+//  - JavaScript names inside <script>: the page's own variables, the DOM,
+//    built-ins and jQuery, members after ".", event names and other string
+//    values, with docs beside the dropdown (TypeScript's language service,
+//    src/vendor/js-tools.js)
 //  - CSS properties, values, pseudo-classes etc. inside <style>, with their
 //    docs beside the dropdown (VS Code's CSS service, src/vendor/)
 (() => {
@@ -384,13 +388,90 @@
     { label: 'console.log()', keys: ['log', 'console'], body: 'console.log(|);' },
   ];
 
-  const jsHint = (cm, cur, line) => {
-    if (!on('jsSnippets')) return null;
-    const word = line.slice(0, cur.ch).match(/(^|[^\w$.])(\w{2,})$/);
-    if (!word) return null;
+  const jsSnippetHint = (cur, before) => {
+    if (!on('jsSnippets')) return [];
+    const word = before.match(/(^|[^\w$.])(\w{2,})$/);
+    if (!word) return [];
     const typed = word[2].toLowerCase();
-    const list = JS_SNIPPETS.filter((s) => s.keys.some((k) => k.startsWith(typed))).map(blockCompletion);
-    return { list, from: Pos(cur.line, cur.ch - typed.length), to: cur };
+    return JS_SNIPPETS.filter((s) => s.keys.some((k) => k.startsWith(typed))).map(blockCompletion);
+  };
+
+  // A completion from TypeScript's service: the name, with its kind (method,
+  // property, …) on the right and its docs beside the list. Some replace more
+  // than the typed word (obj["a-b"] for obj.a-b, the rest of a string).
+  const jsServiceCompletion = (entry, text, index, from, to) => {
+    let docs;
+    return {
+      text: entry.insertText ?? entry.name,
+      displayText: entry.name,
+      render(el) {
+        el.append(entry.name);
+        const kind = document.createElement('span');
+        kind.className = 'slate-helper-hint-kind';
+        kind.textContent = entry.kind;
+        el.append(kind);
+      },
+      docs: () => (docs === undefined ? (docs = SHP.cm.js.entryDocs(text, index, entry)) : docs),
+      hint(cm) {
+        const span = entry.replacementSpan;
+        const start = span ? cm.posFromIndex(span.start) : from;
+        const end = span ? cm.posFromIndex(span.start + span.length) : to;
+        cm.replaceRange(entry.insertText ?? entry.name, start, end, 'complete');
+      },
+    };
+  };
+
+  // Names TypeScript knows at the cursor: the page's own variables and
+  // functions, the DOM, built-ins and jQuery; members after "."; string values
+  // like event names in addEventListener(''). Opens after "." or a quote, or
+  // once two letters of a name are typed (one letter and Enter would too often
+  // pick a suggestion instead of a new line).
+  const jsServiceHint = (cm, cur, before) => {
+    if (!on('jsSuggestions')) return [];
+    if (!SHP.cm.js) {
+      SHP.cm.loadJsTools();
+      return [];
+    }
+    const word = before.match(/[\w$]*$/)[0];
+    const prev = before[before.length - word.length - 1];
+    const trigger = prev === '.' || /['"`]/.test(prev ?? '');
+    if (/^\d/.test(word) || (word.length < 2 && !trigger)) return [];
+    const text = cm.getValue();
+    const index = cm.indexFromPos(cur);
+    const result = SHP.cm.js.completions(text, index);
+    if (!result) return [];
+    const typed = word.toLowerCase();
+    const rank = (e) => [
+      e.name.toLowerCase() === typed ? 0 : 1,
+      e.kindModifiers?.includes('deprecated') ? 1 : 0,
+      e.sortText,
+      e.name.startsWith(word) ? 0 : 1,
+      e.name.toLowerCase(),
+    ];
+    const compare = (a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      const i = ra.findIndex((v, j) => v !== rb[j]);
+      return i === -1 ? 0 : ra[i] < rb[i] ? -1 : 1;
+    };
+    const entries = result.entries
+      // "warning" entries are just words seen elsewhere in the file;
+      // underscores are masked {{ }}.
+      .filter((e) => e.kind !== 'warning' && !/^_+$/.test(e.name))
+      .filter((e) => e.name.toLowerCase().startsWith(typed))
+      .sort(compare);
+    // Typing a whole name keeps it at the top, so Enter on it changes nothing,
+    // but with nothing else to offer the list stays closed.
+    if (entries.length === 1 && entries[0].name === word) return [];
+    const from = Pos(cur.line, cur.ch - word.length);
+    return entries.map((e) => jsServiceCompletion(e, text, index, from, cur));
+  };
+
+  const jsHint = (cm, cur, line) => {
+    const before = line.slice(0, cur.ch);
+    const list = [...jsSnippetHint(cur, before), ...jsServiceHint(cm, cur, before)];
+    const word = before.match(/[\w$]*$/)[0];
+    return { list, from: Pos(cur.line, cur.ch - word.length), to: cur };
   };
 
   // --- Wiring ----------------------------------------------------------------------
@@ -409,15 +490,17 @@
     return result;
   };
 
-  // Show the highlighted suggestion's docs (CSS service ones have them) next
-  // to the dropdown, compact or not as the Hover docs options say.
+  // Show the highlighted suggestion's docs (CSS and JavaScript service ones
+  // have them) next to the dropdown, at the detail the Hover docs options say.
+  // docs can be a function, for docs that are only looked up when highlighted.
   const docsHtml = (docs) => (typeof docs === 'string'
     ? `<p>${SHP.cm.escapeHtml(docs)}</p>`
     : SHP.cm.docsHtml(docs, SHP.cm.docsSettings()));
   const showDocsForSelection = (result) => {
     if (!result.list.some((c) => c.docs)) return;
     const CM = window.CodeMirror;
-    CM.on(result, 'select', (completion, el) => {
+    CM.on(result, 'select', (c, el) => {
+      const completion = { docs: typeof c.docs === 'function' ? c.docs() : c.docs };
       if (!completion.docs) return SHP.cm.hideTooltip();
       const list = el.parentNode.getBoundingClientRect();
       const item = el.getBoundingClientRect();
@@ -430,8 +513,15 @@
   SHP.autocompleteHint = hint; // for debugging from the console
 
   SHP.registerFeature('source-autocomplete', () => {
+    SHP.injectStyle('autocomplete-kind', `
+      .CodeMirror-hint .slate-helper-hint-kind { float: right; margin-left: 16px; color: #999; font-size: 0.85em; }
+      .CodeMirror-hint-active .slate-helper-hint-kind { color: inherit; opacity: 0.8; }
+    `);
     SHP.onCodeMirror((cm) => {
       if (on('cssProperties')) SHP.cm.loadTools();
+      // The JavaScript service is big; load it only for editors with a <script>
+      // (or, in jsServiceHint, once someone types in one).
+      if (on('jsSuggestions') && SHP.cm.regions(cm.getValue()).some((r) => r.lang === 'javascript')) SHP.cm.loadJsTools();
 
       // Not 'inputRead': that skips characters other key handlers insert
       // (e.g. auto-closed {{ }}). Check once the typing operation has

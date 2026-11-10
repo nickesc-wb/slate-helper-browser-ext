@@ -33,7 +33,8 @@ src/
     features/                  features that use CKEditor / CodeMirror / FW
     boot.js                    starts the page runtime (loads last)
   popup/                       status, per-site override, feature toggles (a tab per group)
-  vendor/source-tools.js       generated bundle of the language tools, loaded on demand
+  vendor/source-tools.js       generated bundle of the HTML/CSS language tools, loaded on demand
+  vendor/js-tools.js           generated bundle of the JavaScript language service, loaded on demand
 tools/                         build script for src/vendor/ (dev only)
 updater/                       Windows updater: native messaging host + installer (in the release zip)
                                and get.ps1, the one-line install (served from main)
@@ -65,16 +66,21 @@ The isolated world owns detection and settings. Once it decides the page is Slat
 
 ### On-demand libraries
 
-Lint, hover docs and CSS autocomplete use VS Code's CSS and HTML language services, HTMLHint and JSHint. Together they're about 2 MB, so they live in `src/vendor/source-tools.js` and load only when a page feature asks:
+The language tools are too big to load into every page, so they live in `src/vendor/` and load only when a page feature asks:
 
-1. A feature calls `SHP.load('source-tools')` (features use `SHP.cm.loadTools()` when the first editor opens), which fires `slate-helper:load`.
+- `source-tools.js` (about 2 MB): VS Code's CSS and HTML language services, HTMLHint and JSHint, for lint, HTML/CSS hover docs and CSS autocomplete. Features load it with `SHP.cm.loadTools()` when an editor opens.
+- `js-tools.js` (about 7 MB): TypeScript's language service with the DOM, ES2023 and jQuery 3 type definitions, for JavaScript suggestions and hover docs. The definitions' comments are where the docs and MDN links come from. Features load it with `SHP.cm.loadJsTools()`, only for an editor that has a `<script>` or once someone types in one, and it then answers a first query right away, since that one reads all the definitions (a few hundred ms).
+
+Loading works the same for both:
+
+1. A feature calls `SHP.load(name)`, which fires `slate-helper:load`.
 2. `main.js` checks the name against `SH.VENDOR_SCRIPTS` and messages the background.
-3. The background injects the file into that frame's MAIN world with `chrome.scripting` (hence the `scripting` permission).
+3. The background injects the file into that frame's MAIN world with `chrome.scripting` (hence the `scripting` permission). Its own `VENDOR_SCRIPTS` list must match.
 4. The bundle hands its exports over with `SHP.provide`.
 
-The tools don't know Liquid, so `SHP.cm` gives them same-length copies of the template with Liquid masked.
+The tools don't know Liquid, so `SHP.cm` gives them same-length copies of the template with Liquid masked: `{{ }}` becomes underscores, which reads as a name in CSS and JS, and `{% %}` becomes spaces. For JavaScript, `SHP.cm.js` puts every `<script>` into one file, since they share one global scope, so a variable from one script is suggested in the next. Suggestions drop names made only of underscores (masked Liquid) and TypeScript's "warning" entries (words seen elsewhere in the file).
 
-`tools/build-vendor.mjs` builds the bundle (`npm run vendor`). It's committed, so the extension still has no build step. Rebuild it after upgrading any of those packages.
+`tools/build-vendor.mjs` builds both bundles (`npm run vendor`; the JS bundle's entry is `tools/js-tools.entry.js`). They're committed, so the extension still has no build step. Rebuild after upgrading any of those packages. TypeScript sets up a Node file system when `process` exists, so tests evaluate `js-tools.js` with `process` hidden (`provideJsTools()` in `test/helpers/codemirror.js`); in a page there's no `process` to hide.
 
 ### Updater
 
@@ -185,7 +191,7 @@ npm test
 
 - Tests use [Vitest](https://vitest.dev) with jsdom. Nothing runs against a real Slate instance.
 - Each test loads the extension's scripts into the page the way Chrome does.
-- Source-view features run against CodeMirror 5 from npm, set up like Slate's editor (htmlmixed with Liquid multiplexed in). See `test/helpers/codemirror.js`; `provideSourceTools()` hands the page the vendor bundle, as the background would.
+- Source-view features run against CodeMirror 5 from npm, set up like Slate's editor (htmlmixed with Liquid multiplexed in). See `test/helpers/codemirror.js`; `provideSourceTools()` and `provideJsTools()` hand the page the vendor bundles, as the background would.
 - In test strings, `‸` marks the cursor (`|` is Liquid's filter pipe).
 - `test/manifest.test.js` checks that `manifest.json` lists every feature file in order and that each page feature has popup metadata.
 - `test/popup.test.js` opens the popup against a stubbed `chrome.*`.

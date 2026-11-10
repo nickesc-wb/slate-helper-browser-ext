@@ -68,10 +68,10 @@ In an editor's source view.
 | Format button | Tidies the HTML from the toolbar or with Shift+Alt+F, without saving or closing |
 | Highlight current element | Shades the element around the cursor, or the CSS rule inside `<style>`. Also shades the Liquid statement around the cursor (`{% if %}` to `{% endif %}`, or one `{{ }}` tag) light blue |
 | Color Liquid syntax | Colors the parts of `{{ }}` and `{% %}` tags (tag names, variables, filters, strings…) in shades of blue |
-| Hover docs | Hover an HTML tag or attribute, or a CSS property or value, for its MDN docs. Arrows in the box show more or less detail |
+| Hover docs | Hover an HTML tag or attribute, a CSS property or value, or a JavaScript name for its MDN docs (for JavaScript, also its signature or type). Arrows in the box show more or less detail |
 | Indentation | Tab inserts 2 spaces, Backspace removes an indent level, Enter between tags splits and indents, and pastes re-indent |
 | Auto-close pairs | Typing `( [ { " '` adds the closing character. Quotes only close in tags, `<style>`, `<script>` and Liquid |
-| Autocomplete | Suggests HTML tags, attribute snippets, comments and entities (`&nbsp;`, `&mdash;`, …), Liquid keywords, filters and variables, CSS properties and values with their docs, CSS snippets (`@media`, `@font-face`, `!important`), and JavaScript snippets (`() => {}`, ready handlers, `console.log`) |
+| Autocomplete | Suggests HTML tags, attribute snippets, comments and entities (`&nbsp;`, `&mdash;`, …), Liquid keywords, filters and variables, CSS properties and values with their docs, CSS snippets (`@media`, `@font-face`, `!important`), JavaScript snippets (`() => {}`, ready handlers, `console.log`), and JavaScript names with their docs: your own variables, the DOM, jQuery and built-ins, members after `.`, and event names in `addEventListener('…')` |
 | Triple-click selects element text | Selects an element's text without its tags, or an attribute's value without its quotes |
 | Lint | Underlines HTML tags that don't pair up, CSS errors and unknown properties, and JavaScript errors. Hover for details |
 | Check Liquid tags | Underlines `{% if %}`, `{% for %}` and other block tags with no end tag, and end tags with nothing to close |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { provideSourceTools, setupEditor, show } from './helpers/codemirror.js';
+import { provideJsTools, provideSourceTools, setupEditor, show } from './helpers/codemirror.js';
 import { docsBox, docsLevels, docsParts, shownDocs } from './helpers/docs.js';
 import { sleep } from './helpers/load.js';
 
@@ -230,4 +230,62 @@ describe('source-autocomplete: JavaScript', () => {
   it('respects the jsSnippets option', () => {
     expect(labels(editor('<script>\n  fn‸\n</script>', { 'source-autocomplete.jsSnippets': false }))).toEqual([]);
   });
+
+  // Names come from TypeScript's language service.
+  const jsEditor = async (value, options) => {
+    const cm = editor(value, options);
+    provideJsTools();
+    await sleep(0);
+    return cm;
+  };
+
+  it('suggests DOM members after a dot, with docs that link to MDN', async () => {
+    const cm = await jsEditor('<script>\n  document.querySel‸\n</script>');
+    expect(labels(cm)).toEqual(expect.arrayContaining(['querySelector', 'querySelectorAll']));
+    const docs = docsParts(docsBox(completionDocs(hints(cm).list.find((c) => c.displayText === 'querySelector'))));
+    expect(docs.description).not.toBe('');
+    expect(docs.mdnLinks.length).toBeGreaterThan(0);
+  });
+
+  it('knows the types of the page\'s own variables, jQuery, and values in strings', async () => {
+    const element = await jsEditor("<script>\n  const link = document.querySelector('a');\n  link.hr‸\n</script>");
+    expect(labels(element)).toContain('href');
+    expect(labels(await jsEditor("<script>\n  $('.a').addCl‸\n</script>"))).toContain('addClass');
+    expect(labels(await jsEditor("<script>\n  document.addEventListener('DOMC‸\n</script>"))).toContain('DOMContentLoaded');
+  });
+
+  it('suggests the page\'s own names across <script> tags, and not masked Liquid', async () => {
+    const cm = await jsEditor('<script>\n  var settings = {{ data }};\n</script>\n<script>\n  sett‸\n</script>');
+    expect(labels(cm)).toContain('settings');
+    const all = await jsEditor('<script>\n  var a = {{ data }};\n  a.‸\n</script>');
+    expect(labels(all).some((l) => /^_+$/.test(l))).toBe(false);
+  });
+
+  it('waits for two letters, except after a dot or quote, and stays quiet in comments', async () => {
+    expect(labels(await jsEditor('<script>\n  d‸\n</script>'))).toEqual([]);
+    expect(labels(await jsEditor('<script>\n  document.‸\n</script>'))).toContain('body');
+    expect(labels(await jsEditor('<script>\n  // docu‸\n</script>'))).toEqual([]);
+  });
+
+  it('accepting a suggestion replaces the typed part', async () => {
+    const cm = await jsEditor('<script>\n  document.getElementBy‸\n</script>');
+    accept(cm, 'getElementById');
+    expect(show(cm)).toBe('<script>\n  document.getElementById‸\n</script>');
+  });
+
+  it('keeps a fully typed name first, so Enter leaves it as is', async () => {
+    const cm = await jsEditor('<script>\n  var item = 1, items = 2;\n  item‸\n</script>');
+    expect(labels(cm)[0]).toBe('item');
+  });
+
+  it('respects the jsSuggestions option', async () => {
+    const cm = await jsEditor('<script>\n  document.‸\n</script>', { 'source-autocomplete.jsSuggestions': false });
+    expect(labels(cm)).toEqual([]);
+  });
 });
+
+/** The docs HTML a completion shows beside the list. */
+const completionDocs = (completion) => {
+  const docs = typeof completion.docs === 'function' ? completion.docs() : completion.docs;
+  return window.SlateHelperPage.cm.docsHtml(docs, { level: 'verbose' });
+};

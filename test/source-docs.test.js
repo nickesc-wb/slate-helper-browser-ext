@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { provideSourceTools, setupEditor } from './helpers/codemirror.js';
+import { provideJsTools, provideSourceTools, setupEditor } from './helpers/codemirror.js';
 import { docsBox, docsLevels, docsParts, shownDocs } from './helpers/docs.js';
 import { sleep } from './helpers/load.js';
 
@@ -42,11 +42,22 @@ describe('source-docs', () => {
     expect(gap.mdnLinks.some(mdnPage('gap'))).toBe(true);
   });
 
-  it('has nothing for Liquid, scripts or plain text', async () => {
+  it('has nothing for Liquid or plain text', async () => {
     const cm = await editor(TEMPLATE);
     expect(docsFor(cm, 'url')).toBeNull();
-    expect(docsFor(cm, 'title')).toBeNull();
     expect(docsFor(cm, 'Go')).toBeNull();
+  });
+
+  it('describes JavaScript names in <script>, with their signature or type', async () => {
+    const cm = await editor(TEMPLATE.replace('document.title = "x";', 'const el = document.querySelector("a");'));
+    provideJsTools();
+    await sleep(0);
+    const method = docsParts(shownDocs(docsBox(docsFor(cm, 'querySelector'))));
+    expect(method.description).not.toBe('');
+    expect(method.syntax).toContain('querySelector');
+    expect(method.mdnLinks.length).toBeGreaterThan(0);
+    // The page's own variable: just its type.
+    expect(docsParts(docsBox(docsFor(cm, 'el '))).syntax).toContain('HTMLAnchorElement');
   });
 
   it('turns markdown links into links, with their title as a hint and code kept as code', async () => {
@@ -188,9 +199,12 @@ describe('source-docs', () => {
     expect(hint.style.display).toBe('none');
   });
 
-  it('respects the html and css options', async () => {
-    const cm = await editor(TEMPLATE, { 'source-docs.html': false });
+  it('respects the html, css and js options', async () => {
+    const cm = await editor(TEMPLATE, { 'source-docs.html': false, 'source-docs.js': false });
+    provideJsTools();
+    await sleep(0);
     expect(docsFor(cm, 'table')).toBeNull();
+    expect(docsFor(cm, 'title')).toBeNull();
     expect(docsFor(cm, 'gap')).not.toBeNull();
   });
 });

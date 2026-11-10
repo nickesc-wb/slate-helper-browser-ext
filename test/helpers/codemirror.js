@@ -6,7 +6,9 @@ import 'codemirror/addon/mode/multiplex.js';
 import 'codemirror/addon/fold/xml-fold.js';
 import 'codemirror/addon/hint/show-hint.js';
 import 'codemirror/addon/hint/html-hint.js';
-import { loadScripts } from './load.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { loadScripts, ROOT } from './load.js';
 
 // jsdom has no layout; CodeMirror only needs these to return something.
 const rect = () => ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 });
@@ -87,6 +89,26 @@ export const provideSourceTools = () => {
     window.SlateHelperPage = SHP;
   }
   window.SlateHelperPage.provide('source-tools', sourceTools);
+};
+
+let jsTools = null;
+
+/**
+ * Give the page runtime the JavaScript service, as the background would
+ * inject src/vendor/js-tools.js after SHP.load('js-tools'). Then await
+ * sleep(0) before checking. The bundle is evaluated once per test file.
+ */
+export const provideJsTools = () => {
+  if (!jsTools) {
+    const SHP = window.SlateHelperPage;
+    window.SlateHelperPage = { provide: (_name, tools) => { jsTools = tools; } };
+    // TypeScript sets up a Node file system when process exists. A page has
+    // no process, so it's hidden here too.
+    const code = readFileSync(resolve(ROOT, 'src/vendor/js-tools.js'), 'utf8');
+    new Function('process', 'require', code)(undefined, undefined);
+    window.SlateHelperPage = SHP;
+  }
+  window.SlateHelperPage.provide('js-tools', jsTools);
 };
 
 // What CodeMirror does with keys no handler takes.
