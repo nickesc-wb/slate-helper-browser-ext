@@ -82,6 +82,7 @@ In an editor's source view.
 |---|---|
 | Insert between blocks | In the portal editor, hover the space between two blocks, or above the first or below the last, for a **+** button. Click it and pick a block to add it right there. Also widens the gap between blocks a little |
 | Click to copy record number | On a record, click the record number at the top right to copy it. A hint below it says when it's copied |
+| Impersonate from portal pages | Adds the portal's **Impersonate** button to its view, method and query pages, so you can preview without going back to the portal. On Anonymous/Guest portals, which have no one to impersonate, it just opens the portal |
 | Instance badge | A corner badge with the client's hostname and Slate area. Click it to hide it |
 | Client favicon in header | Shows the client's favicon left of the Slate logo |
 
