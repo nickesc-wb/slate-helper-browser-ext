@@ -2,13 +2,17 @@
 // move, Tab or Enter to accept, Esc to close). Suggests:
 //  - HTML element names after "<" (accepting adds the closing tag; <style>
 //    and <script> also get their type attribute)
-//  - attribute snippets after a space inside an opening tag
+//  - attribute snippets after a space inside an opening tag, "<!--" after
+//    "<!", and HTML entities after "&" in text
 //  - Liquid keywords inside {% %} (block keywords add their end tag; the end
 //    tag for the innermost unclosed block is ranked first)
 //  - Liquid filters after "|"
 //  - Liquid variables already used in this editor, one dotted segment at a
 //    time, including loop variables
-//  - CSS block snippets after "@" inside <style> (e.g. a 768px media query)
+//  - CSS block snippets after "@" inside <style> (e.g. a 768px media query),
+//    and "!important" after "!"
+//  - JavaScript snippets inside <script> (arrow function, ready handlers,
+//    console.log) once two letters of their key are typed
 //  - CSS properties, values, pseudo-classes etc. inside <style>, with their
 //    docs beside the dropdown (VS Code's CSS service, src/vendor/)
 (() => {
@@ -23,18 +27,36 @@
   };
 
   // Built-in attribute snippets per tag. "|" marks where the cursor goes.
+  const CELL_SNIPPETS = ['align="|"', 'valign="top"', 'colspan="|"', 'width="|"'];
   const SNIPPETS = {
-    a: ['href="|"', 'target="_blank"'],
-    img: ['src="|"', 'alt="|"'],
+    a: ['href="|"', 'href="mailto:|"', 'href="tel:|"', 'target="_blank"'],
+    img: ['src="|"', 'alt="|"', 'width="|"', 'border="0"', 'style="display: block;"'],
     style: ['type="text/css"'],
     script: ['type="text/javascript"'],
     link: ['rel="stylesheet"'],
     table: ['role="presentation" cellpadding="0" cellspacing="0" border="0"', 'width="100%"'],
-    td: ['align="|"', 'valign="top"'],
+    td: CELL_SNIPPETS,
+    th: CELL_SNIPPETS,
+    // A <button> in a Slate form submits it unless it's type="button".
+    button: ['type="button"'],
+    input: ['type="|"', 'name="|"', 'placeholder="|"'],
+    label: ['for="|"'],
+    iframe: ['src="|"', 'title="|"', 'width="100%"', 'allowfullscreen'],
   };
   // Offered inside every opening tag (once you start typing the name), after
   // that tag's own snippets.
-  const ANY_TAG_SNIPPETS = ['style="|"'];
+  const ANY_TAG_SNIPPETS = ['class="|"', 'id="|"', 'style="|"', 'title="|"', 'role="|"', 'aria-label="|"', 'data-|=""'];
+
+  // Attribute names in a snippet: 'role="x" border="0"' → ['role', 'border'].
+  const snippetAttributes = (snippet) => snippet.replace(/="[^"]*"/g, '').trim().split(/\s+/);
+
+  // Entities offered after "&" in text, with the character each one shows.
+  const ENTITIES = [
+    ['nbsp', 'non-breaking space'], ['amp', '&'], ['mdash', '—'], ['ndash', '–'],
+    ['rsquo', '’'], ['lsquo', '‘'], ['ldquo', '“'], ['rdquo', '”'], ['hellip', '…'],
+    ['bull', '•'], ['copy', '©'], ['reg', '®'], ['trade', '™'],
+    ['zwnj', 'zero-width non-joiner, for email preheaders'],
+  ];
 
   const BLOCK_KEYWORDS = ['if', 'unless', 'case', 'for', 'capture', 'comment', 'raw', 'tablerow'];
   const KEYWORDS = [
@@ -200,8 +222,20 @@
     },
   });
 
+  const entityCompletion = ([name, shows]) => ({
+    text: `&${name};`,
+    displayText: `&${name};  ${shows}`,
+  });
+
   const htmlHint = (cm, cur, line) => {
     const before = line.slice(0, cur.ch);
+
+    // Comment after "<!"
+    if (/<!-{0,2}$/.test(before)) {
+      if (!on('tags')) return null;
+      const from = Pos(cur.line, before.lastIndexOf('<'));
+      return { list: [snippetCompletion('<!-- | -->')], from, to: cur };
+    }
 
     // Element name after "<"
     const tag = before.match(/<([\w-]*)$/);
@@ -218,30 +252,48 @@
       const name = attr[1].toLowerCase();
       const partial = attr[3];
       const tagEnd = line.indexOf('>', cur.ch);
-      const tagText = line.slice(before.lastIndexOf('<'), tagEnd === -1 ? line.length : tagEnd);
+      // The tag's text without the word being typed, to see which attributes it has.
+      const tagText = before.slice(before.lastIndexOf('<'), cur.ch - partial.length)
+        + line.slice(cur.ch, tagEnd === -1 ? line.length : tagEnd);
+      const has = (a) => new RegExp(`\\s${a}(?=[\\s=/>]|$)`).test(tagText);
       // Every-tag snippets wait for a typed prefix, so a space in any tag
       // doesn't pop up a list.
-      const list = [...(SNIPPETS[name] || []), ...(partial ? ANY_TAG_SNIPPETS : [])]
+      const list = [...new Set([...(SNIPPETS[name] || []), ...(partial ? ANY_TAG_SNIPPETS : [])])]
         .filter((s) => s.startsWith(partial))
-        .filter((s) => !s.match(/[\w-]+(?==)/g).some((a) => new RegExp(`\\s${a}=`).test(tagText)))
+        .filter((s) => !snippetAttributes(s).some(has))
         .map(snippetCompletion);
       return { list, from: Pos(cur.line, cur.ch - partial.length), to: cur };
+    }
+
+    // Entity after "&" in text (not inside a tag, where "&" is usually in a URL)
+    const amp = before.match(/&([a-z]*)$/);
+    if (amp && on('entities') && before.lastIndexOf('<') <= before.lastIndexOf('>')) {
+      const partial = amp[1];
+      const list = ENTITIES.filter(([name]) => name.startsWith(partial)).map(entityCompletion);
+      return { list, from: Pos(cur.line, cur.ch - amp[0].length), to: cur };
     }
     return null;
   };
 
   // --- CSS helpers -----------------------------------------------------------------
 
-  // Block snippets for <style>. "|" marks where the cursor goes; each line after
-  // the first gets the current line's indent.
+  // Block snippets for <style>, offered after "@".
   const CSS_SNIPPETS = [
     { label: '@media (min-width: 768px)', body: '@media (min-width: 768px) {\n  |\n}' },
     // 767.98px, not 768px, so it never overlaps the min-width query above (and
     // still covers fractional widths like 767.5px on zoomed or HiDPI screens).
     { label: '@media (max-width: 767.98px)', body: '@media (max-width: 767.98px) {\n  |\n}' },
+    { label: '@media (prefers-color-scheme: dark)', body: '@media (prefers-color-scheme: dark) {\n  |\n}' },
+    { label: '@media print', body: '@media print {\n  |\n}' },
+    { label: '@media (prefers-reduced-motion: reduce)', body: '@media (prefers-reduced-motion: reduce) {\n  |\n}' },
+    { label: '@font-face', body: '@font-face {\n  font-family: "|";\n  src: url("");\n}' },
+    { label: '@import url("")', body: '@import url("|");' },
+    { label: '@keyframes', body: '@keyframes | {\n  from {}\n  to {}\n}' },
   ];
 
-  const cssBlockCompletion = ({ label, body }) => ({
+  // Multi-line snippet ({ label, body }) for <style> and <script>. "|" marks
+  // where the cursor goes; each line after the first gets the current line's indent.
+  const blockCompletion = ({ label, body }) => ({
     text: label,
     displayText: label,
     hint(cm, data) {
@@ -301,13 +353,44 @@
   };
 
   const cssHint = (cm, cur, line) => {
-    const at = line.slice(0, cur.ch).match(/(^|[\s;{}])(@[\w-]*)$/);
+    const before = line.slice(0, cur.ch);
+    const at = before.match(/(^|[\s;{}])(@[\w-]*)$/);
     if (at && on('cssSnippets')) {
       const typed = at[2];
-      const list = CSS_SNIPPETS.filter((s) => s.label.startsWith(typed) && s.label !== typed).map(cssBlockCompletion);
+      const list = CSS_SNIPPETS.filter((s) => s.label.startsWith(typed) && s.label !== typed).map(blockCompletion);
       if (list.length) return { list, from: Pos(cur.line, cur.ch - typed.length), to: cur };
     }
+    // "!important" after "!", with a space before it if there isn't one
+    const bang = before.match(/(\S?)!(\w*)$/);
+    if (bang && on('cssSnippets') && 'important'.startsWith(bang[2]) && bang[2] !== 'important') {
+      const from = Pos(cur.line, cur.ch - bang[2].length - 1);
+      const text = (bang[1] && !/[\s:]/.test(bang[1]) ? ' ' : '') + '!important';
+      return { list: [{ text, displayText: '!important' }], from, to: cur };
+    }
     return cssServiceHint(cm, cur);
+  };
+
+  // --- JavaScript helpers ------------------------------------------------------------
+
+  // Snippets for <script>, offered once two letters of one of their keys are typed.
+  const JS_SNIPPETS = [
+    { label: '() => {}', keys: ['arrow', 'fn'], body: '() => {\n  |\n}' },
+    { label: '$(function () {})', keys: ['ready', 'jquery'], body: '$(function () {\n  |\n});' },
+    {
+      label: "document.addEventListener('DOMContentLoaded', …)",
+      keys: ['ready', 'domcontentloaded'],
+      body: "document.addEventListener('DOMContentLoaded', () => {\n  |\n});",
+    },
+    { label: 'console.log()', keys: ['log', 'console'], body: 'console.log(|);' },
+  ];
+
+  const jsHint = (cm, cur, line) => {
+    if (!on('jsSnippets')) return null;
+    const word = line.slice(0, cur.ch).match(/(^|[^\w$.])(\w{2,})$/);
+    if (!word) return null;
+    const typed = word[2].toLowerCase();
+    const list = JS_SNIPPETS.filter((s) => s.keys.some((k) => k.startsWith(typed))).map(blockCompletion);
+    return { list, from: Pos(cur.line, cur.ch - typed.length), to: cur };
   };
 
   // --- Wiring ----------------------------------------------------------------------
@@ -319,6 +402,7 @@
     let result;
     if (ctx === 'liquid' || /\{[{%][^}]*$/.test(line.slice(0, cur.ch))) result = liquidHint(cm, cur, line);
     else if (ctx === 'css') result = cssHint(cm, cur, line);
+    else if (ctx === 'javascript') result = jsHint(cm, cur, line);
     else result = htmlHint(cm, cur, line);
     if (!result || !result.list.length) return null;
     showDocsForSelection(result);

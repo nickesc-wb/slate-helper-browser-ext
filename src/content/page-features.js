@@ -87,11 +87,13 @@
     options: [
       opt('tags', 'HTML tag names (adds the closing tag)'),
       opt('snippets', 'Attribute snippets'),
+      opt('entities', 'HTML entities after & (&nbsp;, &mdash;, …)'),
       opt('liquidKeywords', 'Liquid keywords and filters'),
       opt('liquidEndTags', 'Add the end tag when accepting if, for, …'),
       opt('liquidVariables', 'Liquid variables used in this editor'),
       opt('cssProperties', 'CSS properties and values in <style>, with docs'),
-      opt('cssSnippets', 'CSS snippets in <style> (768px @media queries)'),
+      opt('cssSnippets', 'CSS snippets in <style> (@media queries, @font-face, !important)'),
+      opt('jsSnippets', 'JavaScript snippets in <script> (arrow function, ready, console.log)'),
     ],
   });
 

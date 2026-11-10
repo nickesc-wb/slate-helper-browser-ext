@@ -14,6 +14,7 @@ const accept = (cm, label) => {
   const c = data.list.find((x) => (typeof x === 'string' ? x : x.displayText) === label);
   if (!c) throw new Error(`No suggestion "${label}" in ${labels(cm).join(', ')}`);
   if (typeof c === 'string') cm.replaceRange(c, data.from, data.to, 'complete');
+  else if (!c.hint) cm.replaceRange(c.text, data.from, data.to, 'complete');
   else c.hint(cm, data, c);
 };
 
@@ -43,19 +44,45 @@ describe('source-autocomplete: HTML', () => {
 
   it('suggests attribute snippets inside a tag and places the cursor', () => {
     const cm = editor('<a ‸>');
-    expect(labels(cm)).toEqual(['href=""', 'target="_blank"']);
+    expect(labels(cm)).toEqual(expect.arrayContaining(['href=""', 'target="_blank"']));
     accept(cm, 'href=""');
     expect(show(cm)).toBe('<a href="‸">');
   });
 
   it('skips attributes the tag already has', () => {
     const cm = editor('<a href="x" ‸>');
-    expect(labels(cm)).toEqual(['target="_blank"']);
+    expect(labels(cm)).toContain('target="_blank"');
+    expect(labels(cm).filter((l) => l.startsWith('href'))).toEqual([]);
+    // Attributes without a value count too.
+    expect(labels(editor('<iframe allowfullscreen ‸>'))).not.toContain('allowfullscreen');
   });
 
-  it('offers style="" on any tag once you start typing', () => {
+  it('still completes an attribute name typed in full', () => {
+    expect(labels(editor('<div class‸>'))).toEqual(['class=""']);
+  });
+
+  it('offers class, id and style on any tag once you start typing', () => {
     expect(labels(editor('<div ‸>'))).toEqual([]);
+    expect(labels(editor('<div c‸>'))).toEqual(['class=""']);
+    expect(labels(editor('<div i‸>'))).toEqual(['id=""']);
     expect(labels(editor('<div st‸>'))).toEqual(['style=""']);
+    expect(labels(editor('<div class="x" data-id="y" c‸>'))).toEqual([]);
+    expect(labels(editor('<div data-id="y" i‸>'))).toEqual(['id=""']);
+  });
+
+  it('completes a comment after <!', () => {
+    const cm = editor('<p></p><!‸');
+    accept(cm, '<!--  -->');
+    expect(show(cm)).toBe('<p></p><!-- ‸ -->');
+  });
+
+  it('suggests entities after & in text, but not inside a tag', () => {
+    const cm = editor('<p>Fall &md‸</p>');
+    expect(labels(cm)).toHaveLength(1);
+    accept(cm, labels(cm)[0]);
+    expect(show(cm)).toBe('<p>Fall &mdash;‸</p>');
+    expect(labels(editor('<a href="?a=1&‸">'))).toEqual([]);
+    expect(labels(editor('<p>&‸</p>', { 'source-autocomplete.entities': false }))).toEqual([]);
   });
 
   it('respects the tags option', () => {
@@ -102,9 +129,18 @@ describe('source-autocomplete: Liquid', () => {
 describe('source-autocomplete: CSS', () => {
   it('suggests media query blocks after @ in <style>', () => {
     const cm = editor('<style>\n  @‸\n</style>');
-    expect(labels(cm)).toEqual(['@media (min-width: 768px)', '@media (max-width: 767.98px)']);
+    expect(labels(cm)).toEqual(expect.arrayContaining(['@media (min-width: 768px)', '@media (max-width: 767.98px)']));
     accept(cm, '@media (min-width: 768px)');
     expect(show(cm)).toBe('<style>\n  @media (min-width: 768px) {\n    ‸\n  }\n</style>');
+  });
+
+  it('suggests !important after !, adding a space if needed', () => {
+    const cm = editor('<style>\n  .a { color: red!im‸ }\n</style>');
+    accept(cm, '!important');
+    expect(show(cm)).toBe('<style>\n  .a { color: red !important‸ }\n</style>');
+    const spaced = editor('<style>\n  .a { color: red !‸ }\n</style>');
+    accept(spaced, '!important');
+    expect(show(spaced)).toBe('<style>\n  .a { color: red !important‸ }\n</style>');
   });
 
   // Property and value suggestions come from VS Code's CSS service.
@@ -168,5 +204,30 @@ describe('source-autocomplete: CSS', () => {
   it('respects the cssProperties option', async () => {
     const cm = await cssEditor('<style>\n  .a { backg‸ }\n</style>', { 'source-autocomplete.cssProperties': false });
     expect(labels(cm)).toEqual([]);
+  });
+});
+
+describe('source-autocomplete: JavaScript', () => {
+  it('suggests snippets in <script> once two letters of a key are typed', () => {
+    expect(labels(editor('<script>\n  f‸\n</script>'))).toEqual([]);
+    const cm = editor("<script>\n  $('a').on('click', fn‸);\n</script>");
+    expect(labels(cm)).toEqual(['() => {}']);
+    accept(cm, '() => {}');
+    expect(show(cm)).toBe("<script>\n  $('a').on('click', () => {\n    ‸\n  });\n</script>");
+  });
+
+  it('places the cursor inside a one-line snippet', () => {
+    const cm = editor('<script>\n  lo‸\n</script>');
+    accept(cm, 'console.log()');
+    expect(show(cm)).toBe('<script>\n  console.log(‸);\n</script>');
+  });
+
+  it('does not suggest HTML tags or JS snippets after a dot', () => {
+    expect(labels(editor('<script>\n  if (i <di‸\n</script>'))).toEqual([]);
+    expect(labels(editor('<script>\n  x.fn‸\n</script>'))).toEqual([]);
+  });
+
+  it('respects the jsSnippets option', () => {
+    expect(labels(editor('<script>\n  fn‸\n</script>', { 'source-autocomplete.jsSnippets': false }))).toEqual([]);
   });
 });
