@@ -28,7 +28,7 @@
     group: 'Dialogs',
     subgroup: 'Editors',
     name: 'Keep editor open after Save',
-    description: 'Save in a WYSIWYG editor dialog saves without closing it. Adds a Save & Close button for the old behavior.',
+    description: 'Save in a block\'s editor (like a portal\'s Static Content) saves without closing it. Adds a Save & Close button for the old behavior. Settings dialogs still close on Save.',
   });
 
   page({

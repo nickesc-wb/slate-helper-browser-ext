@@ -51,7 +51,7 @@ Every feature starts on. Your settings sync with your browser profile.
 | Feature | What it does |
 |---|---|
 | Dialog size | Keeps dialogs inside the window, opens editor dialogs at 85% of the window height, and lets you resize from any edge or corner |
-| Keep editor open after Save | Save and Ctrl+S save without closing the editor dialog. A **Save & Close** button keeps the old behavior |
+| Keep editor open after Save | In a block's editor (like a portal's Static Content), Save and Ctrl+S save without closing it. A **Save & Close** button keeps the old behavior. Settings dialogs, like a portal's or form's Edit Details, still close on Save |
 | Link dialog shortcuts | Adds an "Open in new tab" button. Tab from the URL field opens the Target tab |
 | Impersonate on pick | Picking a record in an Impersonate dialog impersonates it |
 | Recent impersonations | Lists every record you've impersonated on this Slate site under the Record box, newest first, in a scrolling list. Click one to pick it, or × to remove it |

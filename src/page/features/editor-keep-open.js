@@ -3,10 +3,16 @@
 // Slate's Save runs FW.Lazy.Commit(button, { cmd: 'save' }), which posts the
 // form into a hidden iframe. The response is a script that calls
 // parent.FW.Dialog.Unload() (closing the dialog) and then refreshes the saved
-// block on the page. For Save in a dialog with a WYSIWYG editor, we run the
-// same commit but skip that one Unload call, then flash "Saved ✓" on the
-// button. Save as Copy and other buttons are left alone, and a "Save & Close"
-// button is added for the old behavior.
+// block on the page. For Save in a block editor, we run the same commit but
+// skip that one Unload call, then flash "Saved ✓" on the button. Save as Copy
+// and other buttons are left alone, and a "Save & Close" button is added for
+// the old behavior.
+//
+// A block editor is a dialog with a WYSIWYG editor that edits one block of a
+// page (cmd=edit_part, e.g. a portal view's Static Content). Settings dialogs
+// that happen to have rich-text fields (a portal's or form's Edit Details, a
+// form field's label) keep Slate's Save, which closes them: their saves update
+// the page around them, and a dialog left open invites a second Save.
 //
 // A new record's dialog posts without an id, so every Save would create another
 // record. For a new portal part the response renames the placeholder named by
@@ -75,6 +81,11 @@
     return true;
   };
 
+  const isBlockEditor = (host) =>
+    !!host?.querySelector('.cke') &&
+    [host.querySelector('form')?.getAttribute('action'), host.querySelector('.dialog')?.getAttribute('data-href')]
+      .some((url) => query(url).get('cmd') === 'edit_part');
+
   const isSaveButton = (button) =>
     /FW\.Lazy\.Commit\(this,\s*\{\s*cmd:\s*'save'\s*\}\)/.test(button.getAttribute('onclick') || '');
 
@@ -136,7 +147,7 @@
   const onCtrlS = (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.code !== 'KeyS') return;
     const save = [...document.querySelectorAll('.dialog_host:not(.dialog_inactive) .action button')]
-      .find((b) => isSaveButton(b) && b.closest('.dialog_host').querySelector('.cke'));
+      .find((b) => isSaveButton(b) && isBlockEditor(b.closest('.dialog_host')));
     if (!save) return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -148,13 +159,13 @@
     window.addEventListener('keydown', onCtrlS, true); // before Slate's document handler
     SHP.onCKEditor((editor) => {
       const host = editor.container.$.closest('.dialog_host');
-      if (host) addSaveAndClose(host);
+      if (isBlockEditor(host)) addSaveAndClose(host);
     });
 
     // Capture phase on the document runs before the button's own onclick.
     document.addEventListener('click', (e) => {
       const button = e.target.closest?.('.dialog_host .action button');
-      if (!button || !isSaveButton(button) || !button.closest('.dialog_host').querySelector('.cke')) return;
+      if (!button || !isSaveButton(button) || !isBlockEditor(button.closest('.dialog_host'))) return;
       if (!window.FW?.Lazy?.Commit || !window.FW.Validate) return;
       e.preventDefault();
       e.stopPropagation();

@@ -3,16 +3,32 @@ import { loadScripts } from './helpers/load.js';
 
 const SAVE_ONCLICK = "FW.Lazy.Commit(this, { cmd: 'save' })";
 
-// An editor dialog the way Slate builds it. Save & Close (added by the
+// A block editor dialog the way Slate builds it. Save & Close (added by the
 // feature) has Slate's "default" class, which is what Slate's Ctrl+S clicks.
 const dialog = ({ cke = true } = {}) => {
   document.body.innerHTML = `
     <div class="dialog_host"><div class="dialog">
-      ${cke ? '<div class="cke"></div>' : ''}
-      <div class="action">
-        <button class="slate-helper-save-close default" type="button">Save &amp; Close</button>
-        <button type="button" onclick="${SAVE_ONCLICK}">Save</button>
-      </div>
+      <form action="https://x.test/manage/database/portal/widget/html?cmd=edit_part&id=abc">
+        ${cke ? '<div class="cke"></div>' : ''}
+        <div class="action">
+          <button class="slate-helper-save-close default" type="button">Save &amp; Close</button>
+          <button type="button" onclick="${SAVE_ONCLICK}">Save</button>
+        </div>
+      </form>
+    </div></div>`;
+};
+
+// A settings dialog with rich-text fields, like a portal's Edit Details. Its
+// Save guards on FW because inline handlers run in a jsdom global without it.
+const settingsDialog = () => {
+  document.body.innerHTML = `
+    <div class="dialog_host"><div class="dialog" data-href="/manage/database/portal/edit?cmd=edit_details">
+      <form action="https://x.test/manage/database/portal/edit?cmd=edit_details">
+        <input name="name"><div class="cke"></div><div class="cke"></div>
+        <div class="action">
+          <button class="default" type="button" onclick="if (window.FW) ${SAVE_ONCLICK}">Save</button>
+        </div>
+      </form>
     </div></div>`;
 };
 
@@ -62,6 +78,16 @@ describe('editor-keep-open Ctrl+S', () => {
     dialog({ cke: false });
     ctrlS();
     expect(slateCtrlS).toHaveBeenCalled();
+    expect(window.FW.Lazy.Commit).not.toHaveBeenCalled();
+  });
+});
+
+describe('editor-keep-open in settings dialogs', () => {
+  it('leaves Save and Ctrl+S to Slate, so the dialog closes', () => {
+    settingsDialog();
+    ctrlS();
+    expect(slateCtrlS).toHaveBeenCalled();
+    document.querySelector('.action button').click();
     expect(window.FW.Lazy.Commit).not.toHaveBeenCalled();
   });
 });
