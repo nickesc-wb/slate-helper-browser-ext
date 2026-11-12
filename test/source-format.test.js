@@ -6,8 +6,8 @@ import { press, provideFormatTools, setupEditor } from './helpers/codemirror.js'
 // own tidying (a round trip through CKEditor) needs a real Slate editor.
 const PRETTIER = { 'source-format.prettier': true };
 
-const formatted = async (value) => {
-  const cm = setupEditor(['source-format'], value, PRETTIER);
+const formatted = async (value, options = {}) => {
+  const cm = setupEditor(['source-format'], value, { ...PRETTIER, ...options });
   provideFormatTools();
   press(cm, 'Shift-Alt-F');
   await vi.waitFor(() => expect(cm.getValue()).not.toBe(value.replace('‸', '')));
@@ -73,6 +73,32 @@ describe('source-format', () => {
     provideFormatTools();
     press(cm, 'Shift-Alt-F');
     await vi.waitFor(() => expect(cm.getWrapperElement().querySelector('.slate-helper-format-notice')).not.toBeNull());
+    expect(cm.getValue()).toBe(value);
+  });
+
+  it('with Prettier, uses the config from the popup over the defaults', async () => {
+    const config = JSON.stringify({ tabWidth: 4, singleAttributePerLine: true, printWidth: 40 });
+    const cm = await formatted('<div><a href="/x" class="btn" target="_blank">Go</a></div>', { 'source-format.prettierConfig': config });
+    expect(cm.getValue()).toBe([
+      '<div>',
+      '    <a',
+      '        href="/x"',
+      '        class="btn"',
+      '        target="_blank"',
+      '        >Go</a',
+      '    >',
+      '</div>',
+      '',
+    ].join('\n'));
+  });
+
+  it('with Prettier, leaves the code alone and says so when the config has a bad value', async () => {
+    const value = '<div><p>x</p></div>';
+    const cm = setupEditor(['source-format'], value, { ...PRETTIER, 'source-format.prettierConfig': '{ "trailingComma": "sometimes" }' });
+    provideFormatTools();
+    press(cm, 'Shift-Alt-F');
+    await vi.waitFor(() => expect(cm.getWrapperElement().querySelector('.slate-helper-format-notice')).not.toBeNull());
+    expect(cm.getWrapperElement().querySelector('.slate-helper-format-notice').textContent).toContain('trailingComma');
     expect(cm.getValue()).toBe(value);
   });
 });

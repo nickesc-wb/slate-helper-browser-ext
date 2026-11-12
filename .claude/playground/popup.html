@@ -46,7 +46,7 @@
       features: SH.features.map((f) => ({
         id: f.id, group: f.group || 'Other', subgroup: f.subgroup, name: f.name, description: f.description,
         enabled: f.defaultEnabled,
-        options: (f.options || []).map((o) => (o.choices
+        options: (f.options || []).map((o) => (o.text ? { ...o, value: o.defaultValue } : o.choices
           ? { id: o.id, name: o.name, choices: o.choices, value: o.defaultValue }
           : { id: o.id, name: o.name, note: o.note, enabled: o.defaultEnabled })),
         appliesHere: f.areas === '*' || f.areas.includes('admin'),

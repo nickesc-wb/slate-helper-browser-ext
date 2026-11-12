@@ -20,8 +20,9 @@
   const BUTTON_CLASS = 'slate-helper-format';
   const NOTICE_CLASS = 'slate-helper-format-notice';
 
-  // Prettier options. Fixed for now; a user-defined config will be merged over
-  // these. parser and plugins are always ours.
+  // Prettier options. The person's config (the prettierConfig option, JSON the
+  // popup has checked) goes over these; parser, plugins and cursorOffset are
+  // always ours.
   const CONFIG = {
     printWidth: 120,
     tabWidth: SHP.INDENT.length,
@@ -30,7 +31,24 @@
     // 'ignore' would split "</a>." onto two lines, which shows as "link .".
     htmlWhitespaceSensitivity: 'css',
   };
-  const prettierOptions = () => ({ ...CONFIG });
+
+  /** A problem with the person's config, not with the code. */
+  class ConfigError extends Error {}
+  // How Prettier words a bad option value.
+  const PRETTIER_OPTION_ERROR = /^Invalid \w+ value\./;
+
+  const prettierOptions = () => {
+    const text = SHP.optionValue('source-format', 'prettierConfig');
+    if (typeof text !== 'string' || !text.trim()) return { ...CONFIG };
+    let custom;
+    try {
+      custom = JSON.parse(text);
+    } catch (e) {
+      throw new ConfigError(`it isn't valid JSON (${e.message})`);
+    }
+    if (!custom || typeof custom !== 'object' || Array.isArray(custom)) throw new ConfigError('it must be a JSON object');
+    return { ...CONFIG, ...custom };
+  };
 
   /** The Prettier parser for the editor's mode. */
   const parserFor = (cm) => {
@@ -70,16 +88,19 @@
 
   /**
    * Format text with Prettier: { text, cursor }, or throws with a message for
-   * the person (Prettier's, with its line number).
+   * the person (Prettier's, with its line number). A ConfigError means the
+   * config is wrong, so nothing was formatted.
    */
   const prettierFormat = async (text, cursor, parser) => {
+    const options = prettierOptions();
     const { prettier, plugins } = await SHP.load('format-tools');
     let result;
     try {
-      result = await prettier.formatWithCursor(text, { ...prettierOptions(), parser, plugins, cursorOffset: cursor });
+      result = await prettier.formatWithCursor(text, { ...options, parser, plugins, cursorOffset: cursor });
     } catch (e) {
       const line = e.loc?.start?.line;
       const message = String(e.message || e).split('\n')[0].replace(/\s*\(\d+:\d+\)$/, '');
+      if (PRETTIER_OPTION_ERROR.test(message)) throw new ConfigError(message);
       throw new Error(line ? `${message} (line ${line})` : message);
     }
     if (parser !== 'liquid-html') return { text: result.formatted, cursor: result.cursorOffset };
@@ -148,7 +169,10 @@
         result = await prettierFormat(text, cursor, parserFor(cm));
       } catch (e) {
         SHP.log('format: Prettier failed', e);
-        if (editor) {
+        if (e instanceof ConfigError) {
+          // Not Slate's tidying instead: the config is what needs fixing.
+          notice(cm, `Didn't format: check the Prettier config in Slate Helper's popup. ${e.message}`);
+        } else if (editor) {
           const formatted = await ckeditorFormat(editor);
           if (formatted) notice(formatted, `Couldn't format with Prettier: ${e.message}. Used Slate's basic formatting instead.`);
         } else {

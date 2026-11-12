@@ -54,6 +54,47 @@ const el = (tag, className, text) => {
   return node;
 };
 
+/**
+ * Check a JSON option's text against its schema (see text() in
+ * src/content/page-features.js): { errors, warnings }, as messages. Empty
+ * text is fine (the defaults).
+ */
+const checkJson = (text, schema) => {
+  const errors = [];
+  const warnings = [];
+  if (!text.trim()) return { errors, warnings };
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch (e) {
+    errors.push(`Not valid JSON: ${e.message}`);
+    return { errors, warnings };
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    errors.push('The config must be a JSON object, like { "printWidth": 100 }.');
+    return { errors, warnings };
+  }
+  for (const [key, v] of Object.entries(value)) {
+    const type = schema.keys[key];
+    if (!type) {
+      const meant = Object.keys(schema.keys).find((k) => k.toLowerCase() === key.toLowerCase());
+      if (key === 'parser' || key === 'plugins') errors.push(`"${key}" is set by Format itself.`);
+      else if (meant) errors.push(`"${key}" isn't a setting Format supports. Did you mean "${meant}"?`);
+      else errors.push(`"${key}" isn't a setting Format supports.`);
+    } else if (type === 'number' && !(Number.isInteger(v) && v > 0)) {
+      errors.push(`"${key}" must be a whole number above 0.`);
+    } else if (type === 'boolean' && typeof v !== 'boolean') {
+      errors.push(`"${key}" must be true or false.`);
+    } else if (Array.isArray(type) && !type.includes(v)) {
+      errors.push(`"${key}" must be one of ${type.map((t) => `"${t}"`).join(', ')}.`);
+    }
+  }
+  for (const w of schema.warn || []) {
+    if (value[w.key] === w.value) warnings.push(w.message);
+  }
+  return { errors, warnings };
+};
+
 // --- Version and update check --------------------------------------------------
 // Same comparison as the update toast (src/content/features/update-toast.js).
 const isNewerVersion = (a, b) => {
@@ -157,6 +198,49 @@ $('check-updates').addEventListener('click', async () => {
 
   const expanded = loadExpanded();
 
+  // A text option: a box saved when you leave it, if it checks out. Problems
+  // show under it as you type.
+  let textIds = 0;
+  const renderTextOption = (f, o, optionTexts) => {
+    const li = el('li', 'option option-text');
+    const id = `option-text-${textIds++}`;
+    const label = el('label', null, o.name);
+    label.htmlFor = id;
+    const area = el('textarea');
+    area.id = id;
+    area.rows = 4;
+    area.spellcheck = false;
+    area.value = o.value || '';
+    if (o.placeholder) area.placeholder = o.placeholder;
+    if (o.maxLength) area.maxLength = o.maxLength;
+    const message = el('div', 'option-message');
+    message.setAttribute('aria-live', 'polite');
+    area.setAttribute('aria-describedby', message.id = `${id}-message`);
+
+    const check = () => {
+      const { errors, warnings } = o.json ? checkJson(area.value, o.json) : { errors: [], warnings: [] };
+      message.replaceChildren(
+        ...errors.map((e) => el('div', 'option-error', e)),
+        ...(errors.length ? [el('div', 'option-error', 'Not saved until this is fixed.')] : []),
+        ...warnings.map((w) => el('div', 'option-warning', w)),
+      );
+      area.setAttribute('aria-invalid', String(errors.length > 0));
+      return errors.length === 0;
+    };
+    let saved = area.value.trim();
+    area.addEventListener('input', check);
+    area.addEventListener('change', () => {
+      const value = area.value.trim();
+      if (!check() || value === saved) return;
+      saved = value;
+      saveToggle(`${f.id}.${o.id}`, value);
+    });
+    check();
+    optionTexts.push({ area, requires: o.requires });
+    li.append(label, area, message);
+    return li;
+  };
+
   const renderFeature = (f) => {
     const item = el('li', 'feature');
 
@@ -177,7 +261,13 @@ $('check-updates').addEventListener('click', async () => {
 
     const optionBoxes = [];
     const optionSelects = [];
+    const optionTexts = []; // { area, requires }
+    const boxById = {};
     let updateCount = () => {};
+    // A text option is off while its feature, or the checkbox it requires, is.
+    const applyTexts = () => optionTexts.forEach(({ area, requires }) => {
+      area.disabled = !box.checked || (requires && boxById[requires] && !boxById[requires].checked);
+    });
     if (f.options.length) {
       const more = el('button', 'more');
       more.type = 'button';
@@ -203,15 +293,21 @@ $('check-updates').addEventListener('click', async () => {
           list.append(li);
           continue;
         }
+        if (o.text) {
+          list.append(renderTextOption(f, o, optionTexts));
+          continue;
+        }
         const label = el('label', 'option');
         const optBox = el('input');
         optBox.type = 'checkbox';
         optBox.checked = o.enabled;
         optBox.addEventListener('change', () => {
           updateCount();
+          applyTexts();
           saveToggle(`${f.id}.${o.id}`, optBox.checked);
         });
         optionBoxes.push(optBox);
+        boxById[o.id] = optBox;
         const optText = el('span', null, o.name);
         if (o.note) optText.append(el('span', 'option-note', o.note));
         label.append(optBox, optText);
@@ -243,6 +339,7 @@ $('check-updates').addEventListener('click', async () => {
       item.classList.toggle('disabled', !box.checked);
       toggle.title = box.checked ? 'On' : 'Off';
       [...optionBoxes, ...optionSelects].forEach((b) => { b.disabled = !box.checked; });
+      applyTexts();
     };
     box.addEventListener('change', () => {
       applyEnabled();

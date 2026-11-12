@@ -132,7 +132,7 @@
     const only = list('only');
     const enabled = pageIds.filter((id) => (!only.length || only.includes(id)) && !list('off').includes(id));
     const options = Object.fromEntries(SH.features.flatMap((f) =>
-      (f.options || []).map((o) => [SH.optionKey(f.id, o.id), o.choices ? o.defaultValue : o.defaultEnabled])));
+      (f.options || []).map((o) => [SH.optionKey(f.id, o.id), o.choices || o.text ? o.defaultValue : o.defaultEnabled])));
     for (const kv of list('opt')) {
       const [key, value] = kv.split(':');
       options[key] = value === 'true' || value === 'false' ? value === 'true' : value;

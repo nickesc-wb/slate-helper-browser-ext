@@ -11,6 +11,8 @@
   --on-soft: #e5f3e6;
   --track: #cfd5de;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --error: #c62828;
+  --warning: #a15c00;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,6 +29,8 @@
     --on-soft: #1f3322;
     --track: #3a4350;
     --shadow: none;
+    --error: #ef7a7a;
+    --warning: #e0a84f;
   }
 }
 
@@ -316,6 +320,18 @@ main[hidden] { display: none; }
 .option input { margin: 1px 0 0; accent-color: var(--accent); cursor: pointer; }
 .option:has(input:disabled) { color: var(--faint); cursor: default; }
 .option-note { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+.option-text { display: flex; flex-direction: column; gap: 4px; cursor: default; }
+.option-text textarea {
+  box-sizing: border-box; width: 100%; min-height: 64px; resize: vertical;
+  padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: inherit; font: 11px/1.4 ui-monospace, Consolas, monospace;
+}
+.option-text textarea:disabled { opacity: 0.55; }
+.option-text textarea[aria-invalid="true"] { border-color: var(--error); }
+.option-text label:has(+ textarea:disabled) { color: var(--faint); }
+.option-message:empty { display: none; }
+.option-error { color: var(--error); font-size: 11px; }
+.option-warning { color: var(--warning); font-size: 11px; }
 .option-choice { align-items: center; justify-content: space-between; }
 .option select { font: inherit; color: inherit; cursor: pointer; }
 .option:has(select:disabled) { color: var(--faint); cursor: default; }

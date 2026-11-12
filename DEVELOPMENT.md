@@ -88,7 +88,9 @@ The tools don't know Liquid, so `SHP.cm` gives them same-length copies of the te
 
 By default `source-format` uses Slate's own tidying: a round trip through CKEditor's WYSIWYG view, which re-indents the HTML the way reopening the editor does. Its `prettier` option (off by default) switches to Prettier. That's meant for working in the source view: Slate re-formats the code its own way when you leave the source view or reopen the editor, so Prettier's layout doesn't last, and the popup says so in the option's note. With the option off, Shift+Alt+F does nothing in a CodeMirror outside CKEditor; with it on, it formats any CodeMirror.
 
-With the option on, `source-format` runs Prettier (`format-tools.js`) with a fixed config (`CONFIG` in `src/page/features/source-format.js`: 120 columns, 2-space indent, `htmlWhitespaceSensitivity: 'css'`). A user-defined config is meant to be merged over it later; `parser` and `plugins` always come from the feature (`liquid-html`, or `css` / `babel` for an editor in a CSS or JavaScript mode). Keep `'css'` whitespace sensitivity as the default: `'ignore'` splits `</a>.` onto two lines in email copy, which renders as "link .".
+With the option on, `source-format` runs Prettier (`format-tools.js`) with default settings (`CONFIG` in `src/page/features/source-format.js`: 120 columns, 2-space indent, `htmlWhitespaceSensitivity: 'css'`). `parser`, `plugins` and `cursorOffset` always come from the feature (`liquid-html`, or `css` / `babel` for an editor in a CSS or JavaScript mode). Keep `'css'` whitespace sensitivity as the default: `'ignore'` splits `</a>.` onto two lines in email copy, which renders as "link .".
+
+The `prettierConfig` option is a JSON box in the popup (like a `.prettierrc`) whose keys go over those defaults. It's a text option that `requires: 'prettier'`, so it's greyed out while Prettier is off. Its allowed keys and their types are `PRETTIER_CONFIG` in `src/content/page-features.js`: only options that change layout, including the Liquid plugin's `embeddedSingleQuote`, `singleLineLinkTags` and `captureWhitespaceSensitivity`. The popup checks the JSON as you type (`checkJson` in `popup.js`): it must parse, be an object, and use only known keys with values of the right type. Errors show under the box and nothing is saved until they're fixed; `"htmlWhitespaceSensitivity": "ignore"` is allowed but gets a warning. It saves when you leave the box, capped at 2,000 characters to stay well inside `storage.sync`'s 8 KB per-item limit (all settings are one `features` item). If Prettier still rejects a value when formatting (its errors read `Invalid <option> value.`), Format leaves the text alone and the notice says to check the config, rather than falling back to Slate's tidying.
 
 Prettier formats the layout around Liquid but not the Liquid itself. The Liquid plugin is built for Shopify's Liquid and would otherwise respace `{{x}}` to `{{ x }}`, swap quotes, add `{%- -%}` whitespace trimming (Slate's support for it is unknown) and rewrite Slate's `{% if {{x}} == … %}` to `{% if x == … %}`. So after formatting, every `{{ }}` and `{% %}` in the output is replaced with the original tag at the same position, after checking that the input and output have the same tags in the same order (same count, same tag names). If they don't, Prettier changed more than layout (it closes an unclosed `{% if %}` itself, for example), and the text is left as it was. Prettier tracks the cursor by syntax node, so it lands on the right line but not always on the exact character.
 
@@ -131,7 +133,7 @@ Notes:
 Settings live in `chrome.storage.sync`, so they follow the browser profile:
 
 ```js
-{ siteOverrides: { "host": "on" | "off" }, features: { "id": true | false, "id.option": true | false | "choice value" }, debug: false }
+{ siteOverrides: { "host": "on" | "off" }, features: { "id": true | false, "id.option": true | false | "choice value" | "text" }, debug: false }
 ```
 
 Per-browser data lives in `chrome.storage.local` instead:
@@ -157,11 +159,14 @@ Per-browser data lives in `chrome.storage.local` instead:
     description: 'What it does, shown in the popup.',
     defaultEnabled: true,
     areas: ['admin'],          // or '*'
-    options: [               // checkboxes, or a select when it has choices
+    options: [               // checkboxes, a select when it has choices, a text box when text: true
       { id: 'part', name: 'One part of it', defaultEnabled: true },
       // note (checkboxes only): a smaller line under the name, for a caveat
       { id: 'risky', name: 'A risky part', defaultEnabled: false, note: 'What to watch out for.' },
       { id: 'size', name: 'Size', choices: [{ value: 's', label: 'Small' }, { value: 'l', label: 'Large' }], defaultValue: 's' },
+      // Its value is a string ('' by default). requires: a checkbox option it only applies with.
+      // json: checked in the popup as you type (see text() in src/content/page-features.js).
+      { id: 'config', name: 'Config', text: true, defaultValue: '', requires: 'part', json: { keys: { width: 'number' } } },
     ],
     init(ctx) {                // ctx: { host, area, settings, option(id) }; may be async
       if (!ctx.option('part')) return;

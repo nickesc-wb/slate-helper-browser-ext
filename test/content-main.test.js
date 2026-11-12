@@ -69,6 +69,16 @@ describe('content entry point', () => {
     expect(view.choices.map((c) => c.value)).toEqual(['compact', 'standard', 'verbose']);
   });
 
+  it('passes text options as their saved text, empty by default', async () => {
+    await run();
+    expect(pageConfig().options['source-format.prettierConfig']).toBe('');
+    const state = await run({ features: { 'source-format.prettierConfig': '{ "semi": false }' } });
+    expect(pageConfig().options['source-format.prettierConfig']).toBe('{ "semi": false }');
+    const config = state.features.find((f) => f.id === 'source-format').options.find((o) => o.id === 'prettierConfig');
+    expect(config).toMatchObject({ text: true, requires: 'prettier', value: '{ "semi": false }' });
+    expect(config.json.keys.printWidth).toBe('number');
+  });
+
   it('asks the background to inject allowed on-demand scripts', async () => {
     await run();
     document.dispatchEvent(new CustomEvent('slate-helper:load', { detail: 'source-tools' }));

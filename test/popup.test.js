@@ -150,4 +150,47 @@ describe('popup', () => {
     expect(stored.features['instance-badge']).toBe(false);
     expect(document.getElementById('reload-note').hidden).toBe(false);
   });
+
+  it('saves a JSON text option only when it checks out, and only while the option it needs is on', async () => {
+    const options = [
+      { id: 'prettier', name: 'Use Prettier', enabled: false },
+      {
+        id: 'prettierConfig', name: 'Config', text: true, requires: 'prettier', value: '',
+        json: { keys: { printWidth: 'number', semi: 'boolean', trailingComma: ['all', 'none'] }, warn: [{ key: 'semi', value: false, message: 'careful' }] },
+      },
+    ];
+    const state = { ...STATE, features: [{ ...feature('source-format', 'Editing', options), subgroup: 'Tools' }] };
+    const stored = await open(state);
+    const format = document.querySelector('.feature');
+    const area = format.querySelector('textarea');
+    const errors = () => [...format.querySelectorAll('.option-error')];
+    const write = (text) => {
+      area.value = text;
+      area.dispatchEvent(new Event('input'));
+      area.dispatchEvent(new Event('change'));
+    };
+
+    expect(area.disabled).toBe(true);
+    format.querySelector('.option input[type="checkbox"]').click();
+    expect(area.disabled).toBe(false);
+    await sleep(0);
+
+    for (const bad of ['{ "printWidth": ', '[1]', '{ "printWidth": "wide" }', '{ "trailingComma": "sometimes" }', '{ "parser": "babel" }', '{ "printwidth": 80 }']) {
+      write(bad);
+      await sleep(0);
+      expect(errors().length, bad).toBeGreaterThan(0);
+      expect(area.getAttribute('aria-invalid')).toBe('true');
+      expect(stored.features['source-format.prettierConfig']).toBeUndefined();
+    }
+
+    write(' { "printWidth": 100, "semi": false } ');
+    await sleep(0);
+    expect(errors()).toEqual([]);
+    expect(format.querySelectorAll('.option-warning')).toHaveLength(1);
+    expect(stored.features['source-format.prettierConfig']).toBe('{ "printWidth": 100, "semi": false }');
+
+    write('');
+    await sleep(0);
+    expect(stored.features['source-format.prettierConfig']).toBe('');
+  });
 });

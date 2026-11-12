@@ -10,6 +10,42 @@
   const choice = (id, name, choices, defaultValue) => ({
     id, name, defaultValue, choices: choices.map(([value, label]) => ({ value, label })),
   });
+  // A text box (its value is a string, '' when empty). requires: the id of a
+  // checkbox option it only applies with. json: the value must be a JSON
+  // object whose keys are in json.keys, each 'number' (a positive whole
+  // number), 'boolean' or a list of allowed strings; json.warn flags allowed
+  // values that need a caveat: [{ key, value, message }].
+  const text = (id, name, extra) => ({ id, name, text: true, defaultValue: '', ...extra });
+
+  // The Prettier options Format lets you set: the ones that change layout.
+  // parser and plugins are always Format's own.
+  const PRETTIER_CONFIG = {
+    keys: {
+      printWidth: 'number',
+      tabWidth: 'number',
+      useTabs: 'boolean',
+      semi: 'boolean',
+      singleQuote: 'boolean',
+      quoteProps: ['as-needed', 'consistent', 'preserve'],
+      trailingComma: ['all', 'es5', 'none'],
+      bracketSpacing: 'boolean',
+      objectWrap: ['preserve', 'collapse'],
+      bracketSameLine: 'boolean',
+      arrowParens: ['always', 'avoid'],
+      singleAttributePerLine: 'boolean',
+      htmlWhitespaceSensitivity: ['css', 'strict', 'ignore'],
+      embeddedLanguageFormatting: ['auto', 'off'],
+      // Shopify's Liquid plugin
+      embeddedSingleQuote: 'boolean',
+      singleLineLinkTags: 'boolean',
+      captureWhitespaceSensitivity: ['strict', 'ignore'],
+    },
+    warn: [{
+      key: 'htmlWhitespaceSensitivity',
+      value: 'ignore',
+      message: '"ignore" can add or remove spaces that show in the email or page, like "visit ." where a line breaks between a link and a period.',
+    }],
+  };
 
   page({
     id: 'editor-dialog-size',
@@ -120,6 +156,12 @@
         false,
         'For working in the source view only. Slate re-formats the code its own way when you leave the source view or reopen the editor, so Prettier\'s layout is discarded.',
       ),
+      text('prettierConfig', 'Prettier config (JSON, like .prettierrc)', {
+        requires: 'prettier',
+        placeholder: '{ "printWidth": 100, "singleAttributePerLine": true }',
+        maxLength: 2000,
+        json: PRETTIER_CONFIG,
+      }),
     ],
   });
 
