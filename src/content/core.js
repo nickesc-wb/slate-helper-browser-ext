@@ -44,7 +44,7 @@
 
   // Libraries in src/vendor/ that page features may load on demand (SHP.load).
   // Keep in sync with VENDOR_SCRIPTS in background.js.
-  SH.VENDOR_SCRIPTS = ['source-tools', 'js-tools'];
+  SH.VENDOR_SCRIPTS = ['source-tools', 'js-tools', 'format-tools'];
 
   /** Settings key for a feature option: settings.features['<feature>.<option>']. */
   SH.optionKey = (featureId, optionId) => `${featureId}.${optionId}`;

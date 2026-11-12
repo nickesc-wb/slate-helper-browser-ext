@@ -5,6 +5,8 @@
 //   js-tools.js      the TypeScript language service with the browser (DOM),
 //                    ES2023 and jQuery type definitions, for JavaScript
 //                    suggestions and hover docs
+//   format-tools.js  Prettier with Shopify's Liquid plugin and Prettier's CSS
+//                    and JavaScript parsers, for the Format button
 // The extension has no build step, so the output is committed; rerun this
 // (npm run vendor) after upgrading those packages.
 import { build } from 'esbuild';
@@ -29,6 +31,19 @@ const options = (name, packages) => ({
 });
 
 await build(options('source-tools', ['vscode-css-languageservice', 'vscode-html-languageservice', 'vscode-languageserver-textdocument', 'htmlhint', 'jshint']));
+
+await build({
+  ...options('format-tools', ['prettier', '@shopify/prettier-plugin-liquid']),
+  // The Liquid plugin's standalone build asks for require('prettier'), which
+  // would pull in Prettier's Node build; the browser one has what it uses.
+  // (Not esbuild's alias, which would also rewrite 'prettier/plugins/…'.)
+  plugins: [{
+    name: 'prettier-standalone',
+    setup(b) {
+      b.onResolve({ filter: /^prettier$/ }, (args) => b.resolve('prettier/standalone', { kind: args.kind, resolveDir: args.resolveDir }));
+    },
+  }],
+});
 
 // The .d.ts files the JavaScript language service reads, as { path: text }:
 // TypeScript's own lib files (es2023, dom and everything they reference) under

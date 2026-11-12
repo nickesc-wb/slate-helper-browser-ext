@@ -35,6 +35,7 @@ src/
   popup/                       status, per-site override, feature toggles (a tab per group)
   vendor/source-tools.js       generated bundle of the HTML/CSS language tools, loaded on demand
   vendor/js-tools.js           generated bundle of the JavaScript language service, loaded on demand
+  vendor/format-tools.js       generated bundle of Prettier and its Liquid plugin, loaded on demand
 tools/                         build script for src/vendor/ (dev only)
 updater/                       Windows updater: native messaging host + installer (in the release zip)
                                and get.ps1, the one-line install (served from main)
@@ -70,8 +71,9 @@ The language tools are too big to load into every page, so they live in `src/ven
 
 - `source-tools.js` (about 2 MB): VS Code's CSS and HTML language services, HTMLHint and JSHint, for lint, HTML/CSS hover docs and CSS autocomplete. Features load it with `SHP.cm.loadTools()` when an editor opens.
 - `js-tools.js` (about 7 MB): TypeScript's language service with the DOM, ES2023 and jQuery 3 type definitions, for JavaScript suggestions and hover docs. The definitions' comments are where the docs and MDN links come from. Features load it with `SHP.cm.loadJsTools()`, only for an editor that has a `<script>` or once someone types in one, and it then answers a first query right away, since that one reads all the definitions (a few hundred ms).
+- `format-tools.js` (about 1 MB): Prettier with Shopify's Liquid plugin (`@shopify/prettier-plugin-liquid`, which parses HTML with Liquid and formats `<style>` and `<script>` through Prettier's CSS and JavaScript parsers). `source-format` loads it the first time someone formats.
 
-Loading works the same for both:
+Loading works the same for all of them:
 
 1. A feature calls `SHP.load(name)`, which fires `slate-helper:load`.
 2. `main.js` checks the name against `SH.VENDOR_SCRIPTS` and messages the background.
@@ -80,7 +82,17 @@ Loading works the same for both:
 
 The tools don't know Liquid, so `SHP.cm` gives them same-length copies of the template with Liquid masked: `{{ }}` becomes underscores, which reads as a name in CSS and JS, and `{% %}` becomes spaces. For JavaScript, `SHP.cm.js` puts every `<script>` into one file, since they share one global scope, so a variable from one script is suggested in the next. Suggestions drop names made only of underscores (masked Liquid) and TypeScript's "warning" entries (words seen elsewhere in the file).
 
-`tools/build-vendor.mjs` builds both bundles (`npm run vendor`; the JS bundle's entry is `tools/js-tools.entry.js`). They're committed, so the extension still has no build step. Rebuild after upgrading any of those packages. TypeScript sets up a Node file system when `process` exists, so tests evaluate `js-tools.js` with `process` hidden (`provideJsTools()` in `test/helpers/codemirror.js`); in a page there's no `process` to hide.
+`tools/build-vendor.mjs` builds all three (`npm run vendor`; each bundle's entry is `tools/<name>.entry.js`). They're committed, so the extension still has no build step. Rebuild after upgrading any of those packages. TypeScript sets up a Node file system when `process` exists, so tests evaluate `js-tools.js` with `process` hidden (`provideJsTools()` in `test/helpers/codemirror.js`); in a page there's no `process` to hide.
+
+### Format button
+
+By default `source-format` uses Slate's own tidying: a round trip through CKEditor's WYSIWYG view, which re-indents the HTML the way reopening the editor does. Its `prettier` option (off by default) switches to Prettier. That's meant for working in the source view: Slate re-formats the code its own way when you leave the source view or reopen the editor, so Prettier's layout doesn't last, and the popup says so in the option's note. With the option off, Shift+Alt+F does nothing in a CodeMirror outside CKEditor; with it on, it formats any CodeMirror.
+
+With the option on, `source-format` runs Prettier (`format-tools.js`) with a fixed config (`CONFIG` in `src/page/features/source-format.js`: 120 columns, 2-space indent, `htmlWhitespaceSensitivity: 'css'`). A user-defined config is meant to be merged over it later; `parser` and `plugins` always come from the feature (`liquid-html`, or `css` / `babel` for an editor in a CSS or JavaScript mode). Keep `'css'` whitespace sensitivity as the default: `'ignore'` splits `</a>.` onto two lines in email copy, which renders as "link .".
+
+Prettier formats the layout around Liquid but not the Liquid itself. The Liquid plugin is built for Shopify's Liquid and would otherwise respace `{{x}}` to `{{ x }}`, swap quotes, add `{%- -%}` whitespace trimming (Slate's support for it is unknown) and rewrite Slate's `{% if {{x}} == … %}` to `{% if x == … %}`. So after formatting, every `{{ }}` and `{% %}` in the output is replaced with the original tag at the same position, after checking that the input and output have the same tags in the same order (same count, same tag names). If they don't, Prettier changed more than layout (it closes an unclosed `{% if %}` itself, for example), and the text is left as it was. Prettier tracks the cursor by syntax node, so it lands on the right line but not always on the exact character.
+
+When Prettier fails or the Liquid check fails, a Format inside CKEditor falls back to Slate's own tidying. Either way a notice in the editor's corner says why. The Liquid parser is tolerant of broken HTML (unclosed or mismatched tags) and returns it unchanged rather than failing, so "No changes" can mean that too. The edit is one undo step.
 
 ### Updater
 
@@ -147,6 +159,8 @@ Per-browser data lives in `chrome.storage.local` instead:
     areas: ['admin'],          // or '*'
     options: [               // checkboxes, or a select when it has choices
       { id: 'part', name: 'One part of it', defaultEnabled: true },
+      // note (checkboxes only): a smaller line under the name, for a caveat
+      { id: 'risky', name: 'A risky part', defaultEnabled: false, note: 'What to watch out for.' },
       { id: 'size', name: 'Size', choices: [{ value: 's', label: 'Small' }, { value: 'l', label: 'Large' }], defaultValue: 's' },
     ],
     init(ctx) {                // ctx: { host, area, settings, option(id) }; may be async

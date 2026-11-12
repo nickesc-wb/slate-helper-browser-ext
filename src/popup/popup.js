@@ -212,7 +212,9 @@ $('check-updates').addEventListener('click', async () => {
           saveToggle(`${f.id}.${o.id}`, optBox.checked);
         });
         optionBoxes.push(optBox);
-        label.append(optBox, el('span', null, o.name));
+        const optText = el('span', null, o.name);
+        if (o.note) optText.append(el('span', 'option-note', o.note));
+        label.append(optBox, optText);
         const li = el('li');
         li.append(label);
         list.append(li);

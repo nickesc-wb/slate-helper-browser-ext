@@ -5,7 +5,8 @@
 (() => {
   const SH = globalThis.SlateHelper;
   const page = (meta) => SH.registerFeature({ areas: ['admin'], defaultEnabled: true, ...meta, world: 'page' });
-  const opt = (id, name, defaultEnabled = true) => ({ id, name, defaultEnabled });
+  // note: a smaller line under the option's name in the popup (a caveat).
+  const opt = (id, name, defaultEnabled = true, note) => ({ id, name, defaultEnabled, ...(note && { note }) });
   const choice = (id, name, choices, defaultValue) => ({
     id, name, defaultValue, choices: choices.map(([value, label]) => ({ value, label })),
   });
@@ -112,6 +113,14 @@
     subgroup: 'Tools',
     name: 'Format button',
     description: 'A Format button in the editor toolbar (and Shift+Alt+F) tidies the HTML the same way reopening the editor does, without saving or closing.',
+    options: [
+      opt(
+        'prettier',
+        'Format with Prettier instead: also lays out {% if %} / {% for %} blocks, <style> and <script>',
+        false,
+        'For working in the source view only. Slate re-formats the code its own way when you leave the source view or reopen the editor, so Prettier\'s layout is discarded.',
+      ),
+    ],
   });
 
   page({

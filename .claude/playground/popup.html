@@ -48,7 +48,7 @@
         enabled: f.defaultEnabled,
         options: (f.options || []).map((o) => (o.choices
           ? { id: o.id, name: o.name, choices: o.choices, value: o.defaultValue }
-          : { id: o.id, name: o.name, enabled: o.defaultEnabled })),
+          : { id: o.id, name: o.name, note: o.note, enabled: o.defaultEnabled })),
         appliesHere: f.areas === '*' || f.areas.includes('admin'),
         running: false,
       })),

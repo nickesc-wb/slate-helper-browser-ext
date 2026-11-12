@@ -111,6 +111,23 @@ export const provideJsTools = () => {
   window.SlateHelperPage.provide('js-tools', jsTools);
 };
 
+let formatTools = null;
+
+/**
+ * Give the page runtime Prettier, as the background would inject
+ * src/vendor/format-tools.js after SHP.load('format-tools'). The bundle is
+ * evaluated once per test file.
+ */
+export const provideFormatTools = () => {
+  if (!formatTools) {
+    const SHP = window.SlateHelperPage;
+    window.SlateHelperPage = { provide: (_name, tools) => { formatTools = tools; } };
+    loadScripts('src/vendor/format-tools.js');
+    window.SlateHelperPage = SHP;
+  }
+  window.SlateHelperPage.provide('format-tools', formatTools);
+};
+
 // What CodeMirror does with keys no handler takes.
 const DEFAULTS = {
   Backspace: (cm) => cm.execCommand('delCharBefore'),

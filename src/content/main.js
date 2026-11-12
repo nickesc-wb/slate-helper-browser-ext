@@ -27,7 +27,7 @@
     enabled: settings.features[f.id] ?? f.defaultEnabled,
     options: (f.options || []).map((o) => {
       const saved = settings.features[SH.optionKey(f.id, o.id)];
-      if (!o.choices) return { id: o.id, name: o.name, enabled: saved ?? o.defaultEnabled };
+      if (!o.choices) return { id: o.id, name: o.name, note: o.note, enabled: saved ?? o.defaultEnabled };
       // A choice saved by an older version may not exist any more.
       const value = o.choices.some((c) => c.value === saved) ? saved : o.defaultValue;
       return { id: o.id, name: o.name, choices: o.choices, value };

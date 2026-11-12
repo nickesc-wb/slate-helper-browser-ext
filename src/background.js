@@ -76,7 +76,7 @@ async function hashImage(url) {
 // Big libraries the page features load only when needed (SHP.load in
 // src/page/runtime.js), injected into the asking frame's MAIN world. Keep in
 // sync with SH.VENDOR_SCRIPTS in src/content/core.js.
-const VENDOR_SCRIPTS = ['source-tools', 'js-tools'];
+const VENDOR_SCRIPTS = ['source-tools', 'js-tools', 'format-tools'];
 
 function injectVendor(sender, name) {
   if (!VENDOR_SCRIPTS.includes(name)) return;
