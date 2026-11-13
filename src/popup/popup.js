@@ -201,7 +201,7 @@ $('check-updates').addEventListener('click', async () => {
   // A text option: a box saved when you leave it, if it checks out. Problems
   // show under it as you type.
   let textIds = 0;
-  const renderTextOption = (f, o, optionTexts) => {
+  const renderTextOption = (f, o, dependents) => {
     const li = el('li', 'option option-text');
     const id = `option-text-${textIds++}`;
     const label = el('label', null, o.name);
@@ -236,7 +236,7 @@ $('check-updates').addEventListener('click', async () => {
       saveToggle(`${f.id}.${o.id}`, value);
     });
     check();
-    optionTexts.push({ area, requires: o.requires });
+    dependents.push({ input: area, requires: o.requires });
     li.append(label, area, message);
     return li;
   };
@@ -261,12 +261,13 @@ $('check-updates').addEventListener('click', async () => {
 
     const optionBoxes = [];
     const optionSelects = [];
-    const optionTexts = []; // { area, requires }
+    // Text boxes, and checkboxes that require another option: { input, requires }.
+    const dependents = [];
     const boxById = {};
     let updateCount = () => {};
-    // A text option is off while its feature, or the checkbox it requires, is.
-    const applyTexts = () => optionTexts.forEach(({ area, requires }) => {
-      area.disabled = !box.checked || (requires && boxById[requires] && !boxById[requires].checked);
+    // Off while the feature, or the checkbox option it requires, is.
+    const applyRequires = () => dependents.forEach(({ input, requires }) => {
+      input.disabled = !box.checked || Boolean(requires && boxById[requires] && !boxById[requires].checked);
     });
     if (f.options.length) {
       const more = el('button', 'more');
@@ -294,7 +295,7 @@ $('check-updates').addEventListener('click', async () => {
           continue;
         }
         if (o.text) {
-          list.append(renderTextOption(f, o, optionTexts));
+          list.append(renderTextOption(f, o, dependents));
           continue;
         }
         const label = el('label', 'option');
@@ -303,11 +304,12 @@ $('check-updates').addEventListener('click', async () => {
         optBox.checked = o.enabled;
         optBox.addEventListener('change', () => {
           updateCount();
-          applyTexts();
+          applyRequires();
           saveToggle(`${f.id}.${o.id}`, optBox.checked);
         });
         optionBoxes.push(optBox);
         boxById[o.id] = optBox;
+        if (o.requires) dependents.push({ input: optBox, requires: o.requires });
         const optText = el('span', null, o.name);
         if (o.note) optText.append(el('span', 'option-note', o.note));
         label.append(optBox, optText);
@@ -339,7 +341,7 @@ $('check-updates').addEventListener('click', async () => {
       item.classList.toggle('disabled', !box.checked);
       toggle.title = box.checked ? 'On' : 'Off';
       [...optionBoxes, ...optionSelects].forEach((b) => { b.disabled = !box.checked; });
-      applyTexts();
+      applyRequires();
     };
     box.addEventListener('change', () => {
       applyEnabled();

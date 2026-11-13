@@ -10,11 +10,14 @@
 // Liquid plugin (src/vendor/format-tools.js, loaded the first time you
 // format), so the CSS in <style>, the JavaScript in <script> and {% if %} /
 // {% for %} blocks are laid out too. That's for working in the source view:
-// Slate re-formats its own way when you leave it or reopen the editor.
+// Slate re-formats its own way the next time the editor opens.
 // Prettier only moves Liquid around: each {{ }} and {% %} is put back exactly
 // as written, since Slate's Liquid isn't Shopify's (it would add {%- -%}
 // trimming, respace {{x}} and rewrite {% if {{x}} %}). When Prettier can't
 // format the code, Format falls back to Slate's tidying.
+//
+// With onOpen on as well (off by default), the source view is formatted with
+// Prettier each time it opens (formatOnOpen).
 (() => {
   const SHP = window.SlateHelperPage;
   const BUTTON_CLASS = 'slate-helper-format';
@@ -130,6 +133,10 @@
   const modeSwitch = (editor, mode) => new Promise((resolve) => editor.setMode(mode, resolve));
   const codeMirrorOf = (editor) => editor.container.$.querySelector('.CodeMirror')?.CodeMirror;
 
+  // Set on a CKEditor while Format's own round trip reopens its source view,
+  // so that reopening isn't formatted as if you'd opened it.
+  const ROUND_TRIP = 'slateHelperFormatRoundTrip';
+
   // Slate's own tidying: a round trip through CKEditor's WYSIWYG view.
   const ckeditorFormat = async (editor) => {
     const cm = codeMirrorOf(editor);
@@ -138,6 +145,7 @@
     const data = cm.getValue();
     await modeSwitch(editor, 'wysiwyg');
     await new Promise((resolve) => editor.setData(data, { callback: resolve }));
+    editor[ROUND_TRIP] = true;
     await modeSwitch(editor, 'source');
     // Line numbers shift when formatting, so this lands close to, not exactly
     // at, where you were.
@@ -198,6 +206,49 @@
     }
   };
 
+  /**
+   * The onOpen option: format with Prettier when a CKEditor's source view
+   * opens (Slate makes a new CodeMirror each time). Quiet unless it can't: no
+   * fallback to Slate's tidying, which is what the code just came out of. If
+   * you type, or leave the source view, before Prettier is done, it's skipped.
+   */
+  const formatOnOpen = async (cm, editor) => {
+    if (editor[ROUND_TRIP]) {
+      editor[ROUND_TRIP] = false;
+      return;
+    }
+    if (busy || editor.mode !== 'source') return;
+    busy = true;
+    try {
+      const text = cm.getValue();
+      const generation = cm.changeGeneration();
+      // Formatting isn't an edit: if CKEditor saw no changes before, it sees none after.
+      const wasDirty = editor.checkDirty?.();
+      let result;
+      try {
+        result = await prettierFormat(text, cm.indexFromPos(cm.getCursor()), parserFor(cm));
+      } catch (e) {
+        SHP.log('format on open: Prettier failed', e);
+        if (!cm.getWrapperElement().isConnected) return;
+        notice(cm, e instanceof ConfigError
+          ? `Didn't format on open: check the Prettier config in Slate Helper's popup. ${e.message}`
+          : `Didn't format with Prettier on open: ${e.message}.`);
+        return;
+      }
+      const stillOpen = cm.getWrapperElement().isConnected && editor.mode === 'source' && codeMirrorOf(editor) === cm;
+      if (!stillOpen || !cm.isClean(generation) || result.text === text) return;
+      const { top } = cm.getScrollInfo();
+      cm.operation(() => {
+        cm.replaceRange(result.text, { line: 0, ch: 0 }, { line: cm.lastLine() }, '+format');
+        cm.setCursor(cm.posFromIndex(result.cursor));
+        cm.scrollTo(null, top);
+      });
+      if (wasDirty === false) editor.resetDirty?.();
+    } finally {
+      busy = false;
+    }
+  };
+
   // A toolbar button cloned from CKEditor's own Source button, so it matches,
   // placed after Find/Replace with the other code-editing tools.
   const addButton = (editor) => {
@@ -207,14 +258,16 @@
     for (const attr of [...button.attributes]) {
       if (attr.name.startsWith('on') || attr.name === 'id' || attr.name === 'aria-labelledby') button.removeAttribute(attr.name);
     }
+    // Named for what it does: Prettier, when that option's on.
+    const prettier = SHP.option('source-format', 'prettier');
     button.className = `cke_button cke_button_off ${BUTTON_CLASS}`;
-    button.title = 'Format code (Shift+Alt+F)';
-    button.setAttribute('aria-label', 'Format code');
+    button.title = prettier ? 'Format with Prettier (Shift+Alt+F)' : 'Format code (Shift+Alt+F)';
+    button.setAttribute('aria-label', prettier ? 'Format with Prettier' : 'Format code');
     button.querySelector('.cke_button_icon')?.remove();
     const label = button.querySelector('.cke_button_label');
     if (label) {
       label.removeAttribute('id');
-      label.textContent = 'Format';
+      label.textContent = prettier ? 'Prettier' : 'Format';
       label.style.display = 'inline';
       label.style.paddingLeft = '0';
     }
@@ -236,15 +289,21 @@
   };
 
   SHP.registerFeature('source-format', () => {
-    SHP.onCKEditor(addButton);
+    const onOpen = SHP.option('source-format', 'prettier') && SHP.option('source-format', 'onOpen');
+    SHP.onCKEditor((editor) => {
+      addButton(editor);
+      // Load Prettier now, so it's there by the time the source view opens.
+      if (onOpen) SHP.load('format-tools');
+    });
     SHP.onCodeMirror((cm) => {
+      const cke = cm.getWrapperElement().closest('.cke');
+      const editorOf = () => (cke && SHP.ckeditorFor(cke)) || null;
       cm.addKeyMap({
         name: 'slate-helper-format',
-        'Shift-Alt-F': () => {
-          const cke = cm.getWrapperElement().closest('.cke');
-          format(cm, (cke && SHP.ckeditorFor(cke)) || null);
-        },
+        'Shift-Alt-F': () => format(cm, editorOf()),
       });
+      const editor = editorOf();
+      if (onOpen && editor) formatOnOpen(cm, editor);
     });
   });
 })();

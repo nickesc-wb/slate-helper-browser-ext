@@ -5,8 +5,10 @@
 (() => {
   const SH = globalThis.SlateHelper;
   const page = (meta) => SH.registerFeature({ areas: ['admin'], defaultEnabled: true, ...meta, world: 'page' });
-  // note: a smaller line under the option's name in the popup (a caveat).
-  const opt = (id, name, defaultEnabled = true, note) => ({ id, name, defaultEnabled, ...(note && { note }) });
+  // extra.note: a smaller line under the option's name in the popup (a caveat).
+  // extra.requires: the id of another checkbox option it only applies with
+  // (greyed out while that one is off).
+  const opt = (id, name, defaultEnabled = true, extra = {}) => ({ id, name, defaultEnabled, ...extra });
   const choice = (id, name, choices, defaultValue) => ({
     id, name, defaultValue, choices: choices.map(([value, label]) => ({ value, label })),
   });
@@ -154,8 +156,12 @@
         'prettier',
         'Format with Prettier instead: also lays out {% if %} / {% for %} blocks, <style> and <script>',
         false,
-        'For working in the source view only. Slate re-formats the code its own way when you leave the source view or reopen the editor, so Prettier\'s layout is discarded.',
+        { note: 'For working in the source view only. Slate re-formats the code its own way the next time the editor opens, so Prettier\'s layout isn\'t kept.' },
       ),
+      opt('onOpen', 'Also format with Prettier every time the source view opens', false, {
+        requires: 'prettier',
+        note: 'Skipped if you start typing before it\'s done, and Ctrl+Z undoes it.',
+      }),
       text('prettierConfig', 'Prettier config (JSON, like .prettierrc)', {
         requires: 'prettier',
         placeholder: '{ "printWidth": 100, "singleAttributePerLine": true }',

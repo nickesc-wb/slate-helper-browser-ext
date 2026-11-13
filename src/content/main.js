@@ -31,7 +31,7 @@
         const { id, name, requires, placeholder, maxLength, json } = o;
         return { id, name, text: true, requires, placeholder, maxLength, json, value: typeof saved === 'string' ? saved : o.defaultValue };
       }
-      if (!o.choices) return { id: o.id, name: o.name, note: o.note, enabled: saved ?? o.defaultEnabled };
+      if (!o.choices) return { id: o.id, name: o.name, note: o.note, requires: o.requires, enabled: saved ?? o.defaultEnabled };
       // A choice saved by an older version may not exist any more.
       const value = o.choices.some((c) => c.value === saved) ? saved : o.defaultValue;
       return { id: o.id, name: o.name, choices: o.choices, value };

@@ -151,9 +151,10 @@ describe('popup', () => {
     expect(document.getElementById('reload-note').hidden).toBe(false);
   });
 
-  it('saves a JSON text option only when it checks out, and only while the option it needs is on', async () => {
+  it('greys out options while the option they need is off, and saves a JSON text option only when it checks out', async () => {
     const options = [
       { id: 'prettier', name: 'Use Prettier', enabled: false },
+      { id: 'onOpen', name: 'On open', enabled: false, requires: 'prettier' },
       {
         id: 'prettierConfig', name: 'Config', text: true, requires: 'prettier', value: '',
         json: { keys: { printWidth: 'number', semi: 'boolean', trailingComma: ['all', 'none'] }, warn: [{ key: 'semi', value: false, message: 'careful' }] },
@@ -170,9 +171,12 @@ describe('popup', () => {
       area.dispatchEvent(new Event('change'));
     };
 
+    const [prettier, onOpen] = format.querySelectorAll('.option input[type="checkbox"]');
     expect(area.disabled).toBe(true);
-    format.querySelector('.option input[type="checkbox"]').click();
+    expect(onOpen.disabled).toBe(true);
+    prettier.click();
     expect(area.disabled).toBe(false);
+    expect(onOpen.disabled).toBe(false);
     await sleep(0);
 
     for (const bad of ['{ "printWidth": ', '[1]', '{ "printWidth": "wide" }', '{ "trailingComma": "sometimes" }', '{ "parser": "babel" }', '{ "printwidth": 80 }']) {

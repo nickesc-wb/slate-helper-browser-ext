@@ -86,7 +86,7 @@ The tools don't know Liquid, so `SHP.cm` gives them same-length copies of the te
 
 ### Format button
 
-By default `source-format` uses Slate's own tidying: a round trip through CKEditor's WYSIWYG view, which re-indents the HTML the way reopening the editor does. Its `prettier` option (off by default) switches to Prettier. That's meant for working in the source view: Slate re-formats the code its own way when you leave the source view or reopen the editor, so Prettier's layout doesn't last, and the popup says so in the option's note. With the option off, Shift+Alt+F does nothing in a CodeMirror outside CKEditor; with it on, it formats any CodeMirror.
+By default `source-format` uses Slate's own tidying: a round trip through CKEditor's WYSIWYG view, which re-indents the HTML the way reopening the editor does. Its `prettier` option (off by default) switches to Prettier, and the button then reads "Prettier" instead of "Format". That's meant for working in the source view: Slate re-formats the code its own way the next time the editor opens, so Prettier's layout doesn't last, and the popup says so in the option's note. (Switching to WYSIWYG and back within the same editor keeps it: `getData()` returns the source as it was, checked on a real Slate instance.) With the option off, Shift+Alt+F does nothing in a CodeMirror outside CKEditor; with it on, it formats any CodeMirror.
 
 With the option on, `source-format` runs Prettier (`format-tools.js`) with default settings (`CONFIG` in `src/page/features/source-format.js`: 120 columns, 2-space indent, `htmlWhitespaceSensitivity: 'css'`). `parser`, `plugins` and `cursorOffset` always come from the feature (`liquid-html`, or `css` / `babel` for an editor in a CSS or JavaScript mode). Keep `'css'` whitespace sensitivity as the default: `'ignore'` splits `</a>.` onto two lines in email copy, which renders as "link .".
 
@@ -95,6 +95,8 @@ The `prettierConfig` option is a JSON box in the popup (like a `.prettierrc`) wh
 Prettier formats the layout around Liquid but not the Liquid itself. The Liquid plugin is built for Shopify's Liquid and would otherwise respace `{{x}}` to `{{ x }}`, swap quotes, add `{%- -%}` whitespace trimming (Slate's support for it is unknown) and rewrite Slate's `{% if {{x}} == … %}` to `{% if x == … %}`. So after formatting, every `{{ }}` and `{% %}` in the output is replaced with the original tag at the same position, after checking that the input and output have the same tags in the same order (same count, same tag names). If they don't, Prettier changed more than layout (it closes an unclosed `{% if %}` itself, for example), and the text is left as it was. Prettier tracks the cursor by syntax node, so it lands on the right line but not always on the exact character.
 
 When Prettier fails or the Liquid check fails, a Format inside CKEditor falls back to Slate's own tidying. Either way a notice in the editor's corner says why. The Liquid parser is tolerant of broken HTML (unclosed or mismatched tags) and returns it unchanged rather than failing, so "No changes" can mean that too. The edit is one undo step.
+
+The `onOpen` option (off by default, `requires: 'prettier'`) formats with Prettier every time a CKEditor's source view opens. Slate makes a new CodeMirror each time (the old one leaves the page), so `SHP.onCodeMirror` is the trigger, for CodeMirrors inside a `.cke` in source mode only. The bundle is loaded as soon as a CKEditor appears, so it's usually done before the first Source click and the text changes within about 50 ms. It's quiet unless Prettier can't format (then a notice, with no fallback to Slate's tidying, which the code just came out of). It's skipped if the CodeMirror changed while Prettier ran (`cm.isClean(generation)`), so typing is never overwritten, or if the source view closed. Format's own fallback round trip also reopens the source view, so it sets `editor.slateHelperFormatRoundTrip` and on-open skips that one. It calls `editor.resetDirty()` if CKEditor reported no changes before; in Slate, `checkDirty()` doesn't react to source-view edits anyway, so this only matters if that changes. The edit is one undo step, so Ctrl+Z gives back Slate's version.
 
 ### Updater
 
@@ -161,8 +163,9 @@ Per-browser data lives in `chrome.storage.local` instead:
     areas: ['admin'],          // or '*'
     options: [               // checkboxes, a select when it has choices, a text box when text: true
       { id: 'part', name: 'One part of it', defaultEnabled: true },
-      // note (checkboxes only): a smaller line under the name, for a caveat
-      { id: 'risky', name: 'A risky part', defaultEnabled: false, note: 'What to watch out for.' },
+      // note (checkboxes only): a smaller line under the name, for a caveat.
+      // requires (checkboxes and text boxes): greyed out while that checkbox option is off.
+      { id: 'risky', name: 'A risky part', defaultEnabled: false, note: 'What to watch out for.', requires: 'part' },
       { id: 'size', name: 'Size', choices: [{ value: 's', label: 'Small' }, { value: 'l', label: 'Large' }], defaultValue: 's' },
       // Its value is a string ('' by default). requires: a checkbox option it only applies with.
       // json: checked in the popup as you type (see text() in src/content/page-features.js).

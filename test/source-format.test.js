@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { sleep } from './helpers/load.js';
-import { press, provideFormatTools, setupEditor } from './helpers/codemirror.js';
+import { CodeMirror, press, provideFormatTools, setupEditor } from './helpers/codemirror.js';
 
 // No CKEditor here, so this is the plain-CodeMirror path (Shift+Alt+F); Slate's
 // own tidying (a round trip through CKEditor) needs a real Slate editor.
@@ -12,6 +12,36 @@ const formatted = async (value, options = {}) => {
   press(cm, 'Shift-Alt-F');
   await vi.waitFor(() => expect(cm.getValue()).not.toBe(value.replace('‸', '')));
   return cm;
+};
+
+const ON_OPEN = { ...PRETTIER, 'source-format.onOpen': true };
+
+/** A page runtime with source-format and these options, on a new <body>. */
+const boot = async (options) => {
+  // Page runtimes from earlier tests still watch the old <body>, with their
+  // own options, and a pending watcher timer would scan the whole document:
+  // let those run out, then move to a body they don't watch.
+  await sleep(40);
+  document.body.replaceWith(document.createElement('body'));
+  setupEditor(['source-format'], '', options);
+};
+
+/**
+ * Open a CKEditor's source view the way Slate does, after the page runtime
+ * has booted: a .cke element (with a stand-in CKEditor) gets a new CodeMirror.
+ */
+const openSource = (value) => {
+  const editor = {
+    mode: 'source', status: 'ready', on() {}, once() {},
+    checkDirty: () => false, resetDirty: vi.fn(),
+  };
+  const cke = document.createElement('div');
+  cke.className = 'cke';
+  editor.container = { $: cke };
+  window.CKEDITOR = { instances: { editor1: editor } };
+  document.body.append(cke);
+  const cm = CodeMirror(cke, { mode: 'liquid', value, indentUnit: 2 });
+  return { cm, editor };
 };
 
 describe('source-format', () => {
@@ -74,6 +104,49 @@ describe('source-format', () => {
     press(cm, 'Shift-Alt-F');
     await vi.waitFor(() => expect(cm.getWrapperElement().querySelector('.slate-helper-format-notice')).not.toBeNull());
     expect(cm.getValue()).toBe(value);
+  });
+
+  it('with onOpen, formats the source view when it opens without marking it changed', async () => {
+    await boot(ON_OPEN);
+    provideFormatTools();
+    const { cm, editor } = openSource('<div><p>x</p><p>y</p></div>');
+    await vi.waitFor(() => expect(cm.getValue()).toBe('<div>\n  <p>x</p>\n  <p>y</p>\n</div>\n'));
+    expect(editor.resetDirty).toHaveBeenCalled();
+    cm.undo();
+    expect(cm.getValue()).toBe('<div><p>x</p><p>y</p></div>');
+  });
+
+  it("with onOpen, doesn't overwrite what you typed while Prettier was loading", async () => {
+    await boot(ON_OPEN);
+    const { cm } = openSource('<div><p>x</p></div>');
+    await sleep(50); // the watcher has seen the editor; Prettier hasn't loaded
+    cm.replaceRange('!', { line: 0, ch: 0 }, null, '+input');
+    provideFormatTools();
+    await sleep(50);
+    expect(cm.getValue()).toBe('!<div><p>x</p></div>');
+  });
+
+  it('labels the toolbar button Prettier when Prettier is on', async () => {
+    const labels = [];
+    for (const options of [{}, PRETTIER]) {
+      await boot(options);
+      const { cm } = openSource('');
+      const source = document.createElement('a');
+      source.className = 'cke_button cke_button__source';
+      source.innerHTML = '<span class="cke_button_icon"></span><span class="cke_button_label">Source</span>';
+      cm.getWrapperElement().before(source);
+      await vi.waitFor(() => expect(document.querySelector('.slate-helper-format')).not.toBeNull());
+      labels.push(document.querySelector('.slate-helper-format .cke_button_label').textContent);
+    }
+    expect(labels).toEqual(['Format', 'Prettier']);
+  });
+
+  it('only formats on open when Prettier is on too', async () => {
+    await boot({ 'source-format.onOpen': true });
+    provideFormatTools();
+    const { cm } = openSource('<div><p>x</p></div>');
+    await sleep(50);
+    expect(cm.getValue()).toBe('<div><p>x</p></div>');
   });
 
   it('with Prettier, uses the config from the popup over the defaults', async () => {
