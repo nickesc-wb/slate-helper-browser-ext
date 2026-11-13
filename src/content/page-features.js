@@ -199,6 +199,15 @@
   });
 
   page({
+    id: 'source-no-wrap',
+    group: 'Editing',
+    subgroup: 'Tools',
+    name: 'Don\'t wrap long lines',
+    description: 'Long lines stay on one row and the editor scrolls sideways, instead of wrapping onto the next row.',
+    defaultEnabled: false,
+  });
+
+  page({
     id: 'source-lint',
     group: 'Editing',
     subgroup: 'Checks',
