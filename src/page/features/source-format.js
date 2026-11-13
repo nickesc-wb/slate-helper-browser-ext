@@ -279,6 +279,13 @@
     const anchor = editor.container.$.querySelector('.cke_button__replace') || source;
     anchor.after(button);
 
+    // CKEditor's skin dims only a disabled button's icon, and this one is
+    // just a label, so dim that the same way (outside the source view).
+    SHP.injectStyle('format-button', `
+      a.cke_button.${BUTTON_CLASS}.cke_button_disabled .cke_button_label { opacity: 0.3; }
+      a.cke_button.${BUTTON_CLASS}.cke_button_disabled { cursor: default; }
+    `);
+
     const updateState = () => {
       const enabled = editor.mode === 'source';
       button.classList.toggle('cke_button_disabled', !enabled);
