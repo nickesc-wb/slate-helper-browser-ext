@@ -46,6 +46,45 @@ describe('source-indent', () => {
     expect(show(cm)).toBe('{% if x %}\n  ‸\n{% endif %}');
   });
 
+  it('Enter inside a Liquid block keeps the block\'s indent', () => {
+    const cm = editor('<ul>\n  {% for i in list %}\n    <li>{{ i }}</li>‸\n  {% endfor %}\n</ul>');
+    press(cm, 'Enter');
+    expect(show(cm)).toBe('<ul>\n  {% for i in list %}\n    <li>{{ i }}</li>\n    ‸\n  {% endfor %}\n</ul>');
+
+    const afterElse = editor('{% if x %}\n  a\n{% else %}‸');
+    press(afterElse, 'Enter');
+    expect(show(afterElse)).toBe('{% if x %}\n  a\n{% else %}\n  ‸');
+  });
+
+  it('Enter inside a Liquid block doesn\'t indent code that isn\'t indented', () => {
+    const cm = editor('{% if x %}\n<p>a</p>‸');
+    press(cm, 'Enter');
+    expect(show(cm)).toBe('{% if x %}\n<p>a</p>\n‸');
+  });
+
+  it('Enter before a Liquid end tag lines it up with its block', () => {
+    const cm = editor('<div>\n  {% if x %}\n    a‸{% endif %}\n</div>');
+    press(cm, 'Enter');
+    expect(show(cm)).toBe('<div>\n  {% if x %}\n    a\n  ‸{% endif %}\n</div>');
+  });
+
+  it('a closing tag\'s re-indent doesn\'t pull its line out of a Liquid block', () => {
+    // What CodeMirror does when you type the ">" of </p>.
+    const cm = editor('<ul>\n  {% for i in list %}\n    <p>x</p>‸\n  {% endfor %}\n</ul>');
+    cm.indentLine(2, 'smart');
+    expect(cm.getLine(2)).toBe('    <p>x</p>');
+
+    const outside = editor('<ul>\n    <p>x</p>‸\n</ul>');
+    outside.indentLine(1, 'smart');
+    expect(outside.getLine(1)).toBe('  <p>x</p>');
+  });
+
+  it('Shift-Tab still outdents inside a Liquid block', () => {
+    const cm = editor('{% if x %}\n  ‸a\n{% endif %}');
+    press(cm, 'Shift-Tab');
+    expect(cm.getLine(1)).toBe('a');
+  });
+
   it('Enter between CSS braces splits and indents', () => {
     const cm = editor('<style>.a {‸}</style>');
     press(cm, 'Enter');

@@ -99,7 +99,7 @@
     options: [
       opt('tab', 'Tab inserts 2 spaces (Shift+Tab outdents)'),
       opt('backspace', 'Backspace removes a whole indent level'),
-      opt('enter', 'Enter between tags splits and indents'),
+      opt('enter', 'Enter indents inside tags and Liquid blocks'),
       opt('paste', 'Re-indent pasted code'),
       opt('splitOnType', 'Split block tags onto 3 lines as you type them (Slate default)', false),
     ],
