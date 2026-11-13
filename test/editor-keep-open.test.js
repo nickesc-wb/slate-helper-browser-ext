@@ -1,7 +1,13 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadScripts } from './helpers/load.js';
 
-const SAVE_ONCLICK = "FW.Lazy.Commit(this, { cmd: 'save' })";
+// Slate's Save onclick. Inline handlers run in a jsdom global without FW, so it
+// guards on that; slateOnclick below stands in for what it does in Slate.
+const SAVE_ONCLICK = "if (window.FW) FW.Lazy.Commit(this, { cmd: 'save' })";
+// A Deliver message's Save: uploads a recorded video first, then commits.
+const MESSAGE_ONCLICK = "if (window.FW) { var commit = function() { FW.Lazy.Commit(this, { cmd: 'save', video: video_params }); }.bind(this); commit(); }";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // A block editor dialog the way Slate builds it. Save & Close (added by the
 // feature) has Slate's "default" class, which is what Slate's Ctrl+S clicks.
@@ -18,18 +24,49 @@ const dialog = ({ cke = true } = {}) => {
     </div></div>`;
 };
 
-// A settings dialog with rich-text fields, like a portal's Edit Details. Its
-// Save guards on FW because inline handlers run in a jsdom global without it.
+// A settings dialog with rich-text fields, like a portal's Edit Details.
 const settingsDialog = () => {
   document.body.innerHTML = `
     <div class="dialog_host"><div class="dialog" data-href="/manage/database/portal/edit?cmd=edit_details">
       <form action="https://x.test/manage/database/portal/edit?cmd=edit_details">
         <input name="name"><div class="cke"></div><div class="cke"></div>
         <div class="action">
-          <button class="default" type="button" onclick="if (window.FW) ${SAVE_ONCLICK}">Save</button>
+          <button class="default" type="button" onclick="${SAVE_ONCLICK}">Save</button>
         </div>
       </form>
     </div></div>`;
+};
+
+// A dialog opened with CKEditor ready: the feature adds its buttons then, so
+// this registers an instance and waits for the DOM watcher.
+const open = async (url, { fields = '', onclick = SAVE_ONCLICK } = {}) => {
+  document.body.innerHTML = `
+    <div class="dialog_host"><div class="dialog" data-href="${url}">
+      <form action="https://x.test${url}">
+        ${fields}
+        <div class="cke"></div>
+        <div class="action">
+          <button class="default" type="button" onclick="${onclick}">Save</button>
+          <button type="button">Cancel</button>
+        </div>
+      </form>
+    </div></div>`;
+  const cke = document.querySelector('.cke');
+  window.CKEDITOR = { instances: { html: { status: 'ready', container: { $: cke } } } };
+  await sleep(60); // the DOM watcher's debounce
+};
+
+const labels = () => [...document.querySelectorAll('.action button')].map((b) => b.textContent);
+const slateSave = () => [...document.querySelectorAll('.action button')].find((b) => b.getAttribute('onclick'));
+const button = (label) => [...document.querySelectorAll('.action button')].find((b) => b.textContent === label);
+// The keep-open callbacks the feature adds to Slate's commit, if it did.
+const keepOpenCallbacks = () => commit.mock.calls.at(-1)?.[2];
+
+// Clicks Save and plays Slate's response, which closes the dialog.
+const save = () => {
+  slateSave().click();
+  window.FW.Dialog.Unload();
+  keepOpenCallbacks()?.complete?.();
 };
 
 const ctrlS = () => {
@@ -38,8 +75,9 @@ const ctrlS = () => {
   return e;
 };
 
-// Slate's stand-ins. The feature wraps Dialog.Load/Unload when it starts, so
-// the same FW object is kept for the whole file and only its mocks are reset.
+// Slate's stand-ins. The feature wraps Dialog.Load/Unload and Lazy.Commit when
+// it starts, so the same FW object is kept for the whole file and only its
+// mocks are reset; tests read the calls from these mocks.
 const commit = vi.fn();
 const unload = vi.fn();
 const load = vi.fn();
@@ -53,6 +91,13 @@ beforeAll(() => {
   // Stand-in for Slate's own Ctrl+S handler on the document.
   slateCtrlS = vi.fn();
   document.addEventListener('keydown', slateCtrlS);
+  // Stand-in for Save's onclick, which runs after the feature's capture listener.
+  document.addEventListener('click', (e) => {
+    const onclick = e.target.closest?.('button')?.getAttribute('onclick') || '';
+    if (!onclick.includes("cmd: 'save'")) return;
+    const args = onclick.includes('video') ? { cmd: 'save', video: null } : { cmd: 'save' };
+    window.FW.Lazy.Commit(e.target, args);
+  });
 });
 
 beforeEach(() => {
@@ -68,8 +113,8 @@ describe('editor-keep-open Ctrl+S', () => {
     dialog();
     expect(ctrlS().defaultPrevented).toBe(true);
     expect(slateCtrlS).not.toHaveBeenCalled();
-    const [button, args, callbacks] = window.FW.Lazy.Commit.mock.calls[0];
-    expect(button.getAttribute('onclick')).toBe(SAVE_ONCLICK); // Slate's Save, not Save & Close
+    const [target, args, callbacks] = commit.mock.calls[0];
+    expect(target.getAttribute('onclick')).toBe(SAVE_ONCLICK); // Slate's Save, not Save & Close
     expect(args).toEqual({ cmd: 'save' });
     expect(callbacks.complete).toBeTypeOf('function'); // the keep-open save
   });
@@ -78,7 +123,7 @@ describe('editor-keep-open Ctrl+S', () => {
     dialog({ cke: false });
     ctrlS();
     expect(slateCtrlS).toHaveBeenCalled();
-    expect(window.FW.Lazy.Commit).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
   });
 });
 
@@ -87,8 +132,100 @@ describe('editor-keep-open in settings dialogs', () => {
     settingsDialog();
     ctrlS();
     expect(slateCtrlS).toHaveBeenCalled();
-    document.querySelector('.action button').click();
-    expect(window.FW.Lazy.Commit).not.toHaveBeenCalled();
+    slateSave().click();
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(keepOpenCallbacks()).toBeUndefined();
+  });
+});
+
+describe('editor-keep-open Save & Close', () => {
+  it("runs Slate's Save, which closes", async () => {
+    await open('/manage/database/portal/widget/html?cmd=edit_part&id=abc');
+    button('Save & Close').click();
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit.mock.calls[0][0]).toBe(slateSave());
+    expect(keepOpenCallbacks()).toBeUndefined();
+  });
+
+  it("isn't kept open by an earlier Save that never committed", async () => {
+    await open('/manage/database/portal/widget/html?cmd=edit_part&id=abc');
+    window.FW.Validate = () => false; // Slate's onclick stops here, no commit
+    slateSave().dispatchEvent(new MouseEvent('click', { bubbles: false })); // the feature's listener only
+    window.FW.Validate = () => true;
+    button('Save & Close').click();
+    expect(keepOpenCallbacks()).toBeUndefined();
+  });
+});
+
+// Content block dialogs (Database > Content Blocks > a block): Edit Key, with
+// the default output in a WYSIWYG editor, and a value's dialog. New Key and New
+// Code open them without original_key / id.
+describe('editor-keep-open in content block dialogs', () => {
+  const url = (cmd, params) => `/manage/database/translation/edit?cmd=${cmd}&translation_type=snippet&${params}`;
+
+  const keyFields = (original) => `
+    <input name="original_key" value="${original}"><input name="original_type" value="${original && 'string'}">
+    <input name="key" value="${original || 'new_key'}">
+    <select name="type"><option value="string" selected>String</option><option value="html">HTML</option></select>`;
+
+  it('keeps a value open after Save', async () => {
+    await open(url('edit_code', 'key=k&id=abc'));
+    expect(labels()).toEqual(['Save & Close', 'Save', 'Cancel']);
+    save();
+    expect(unload).not.toHaveBeenCalled();
+    expect(ctrlS().defaultPrevented).toBe(true);
+  });
+
+  it('keeps a key open after Save', async () => {
+    await open(url('edit_key', 'key=k'), { fields: keyFields('k') });
+    expect(labels()).toEqual(['Save & Close', 'Save', 'Cancel']);
+    save();
+    expect(unload).not.toHaveBeenCalled();
+  });
+
+  it('closes a key saved under a new name or type, like Slate', async () => {
+    await open(url('edit_key', 'key=k'), { fields: keyFields('k') });
+    document.querySelector('[name=key]').value = 'renamed';
+    slateSave().click();
+    expect(keepOpenCallbacks()).toBeUndefined();
+    commit.mockReset();
+    document.querySelector('[name=key]').value = 'k';
+    document.querySelector('[name=type]').value = 'html';
+    slateSave().click();
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(keepOpenCallbacks()).toBeUndefined();
+  });
+
+  // A second Save from the same dialog would create another one.
+  it.each([
+    ['New Code', 'edit_code', 'key=k&group=g', ''],
+    ['New Key', 'edit_key', '', keyFields('')],
+  ])('shows only Slate\'s Save, labeled Save & Close, for %s', async (_, cmd, params, fields) => {
+    await open(url(cmd, params), { fields });
+    expect(labels()).toEqual(['Save & Close', 'Cancel']);
+    expect(ctrlS().defaultPrevented).toBe(false); // Slate's Ctrl+S, which closes
+    slateSave().click();
+    expect(keepOpenCallbacks()).toBeUndefined(); // not taken over
+  });
+});
+
+// A Deliver message's Edit Message dialog (a mailing's message, or a form's
+// communication). Its Save commits with more than { cmd: 'save' }.
+describe('editor-keep-open in message dialogs', () => {
+  it("keeps the message open, passing Slate's commit arguments through", async () => {
+    await open('/manage/deliver/message?id=abc&cmd=edit', { onclick: MESSAGE_ONCLICK });
+    expect(labels()).toEqual(['Save & Close', 'Save', 'Cancel']);
+    save();
+    expect(commit.mock.calls[0][1]).toEqual({ cmd: 'save', video: null });
+    expect(unload).not.toHaveBeenCalled();
+    expect(ctrlS().defaultPrevented).toBe(true);
+  });
+
+  it('leaves other Deliver dialogs alone', async () => {
+    await open('/manage/deliver/mailing?id=abc&cmd=edit', { onclick: MESSAGE_ONCLICK });
+    expect(labels()).toEqual(['Save', 'Cancel']);
+    slateSave().click();
+    expect(keepOpenCallbacks()).toBeUndefined();
   });
 });
 
@@ -113,20 +250,20 @@ describe('editor-keep-open on a new record', () => {
 
   // Clicks Save and plays Slate's response: close the dialog, then turn the
   // placeholder into the saved part.
-  const save = (savedId) => {
-    document.querySelector('.action button').click();
+  const savePart = (savedId) => {
+    slateSave().click();
     window.FW.Dialog.Unload();
     const placeholder = document.getElementById('part_1');
     if (savedId && placeholder) {
       placeholder.id = `div_${savedId}`;
       placeholder.setAttribute('data-id', savedId);
     }
-    commit.mock.calls.at(-1)[2].complete();
+    keepOpenCallbacks().complete();
   };
 
   it('points the dialog at the part its first save created', () => {
     const { form, options } = partDialog('div=part_1');
-    save('abc');
+    savePart('abc');
     expect(unload).not.toHaveBeenCalled();
     const params = new URLSearchParams(form.getAttribute('action').split('?')[1]);
     expect(params.get('id')).toBe('abc');
@@ -137,7 +274,7 @@ describe('editor-keep-open on a new record', () => {
 
   it("closes the dialog when the new record can't be found", () => {
     const { options } = partDialog('div=part_1');
-    save(null);
+    savePart(null);
     expect(unload).toHaveBeenCalledTimes(1);
     expect(options.cancel).toBeTypeOf('function');
   });
@@ -145,7 +282,7 @@ describe('editor-keep-open on a new record', () => {
   it('keeps an existing record open as before', () => {
     const { form } = partDialog('id=abc&div=div_abc');
     const action = form.getAttribute('action');
-    save(null);
+    savePart(null);
     expect(unload).not.toHaveBeenCalled();
     expect(form.getAttribute('action')).toBe(action);
   });
