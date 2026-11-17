@@ -74,6 +74,7 @@ In an editor's source view.
 | Autocomplete | Suggests HTML tags, attribute snippets, comments and entities (`&nbsp;`, `&mdash;`, …), Liquid keywords, filters and variables, CSS properties and values with their docs, CSS snippets (`@media`, `@font-face`, `!important`), JavaScript snippets (`() => {}`, ready handlers, `console.log`), and JavaScript names with their docs: your own variables, the DOM, jQuery and built-ins, members after `.`, and event names in `addEventListener('…')` |
 | Triple-click selects element text | Selects an element's text without its tags, or an attribute's value without its quotes |
 | Don't wrap long lines | Off by default. Long lines stay on one row and the editor scrolls sideways instead |
+| Wrap button | A Wrap button in the editor toolbar turns line wrapping on and off, and saves your choice as "Don't wrap long lines" |
 | Lint | Underlines HTML tags that don't pair up, CSS errors and unknown properties, and JavaScript errors. Hover for details |
 | Check Liquid tags | Underlines `{% if %}`, `{% for %}` and other block tags with no end tag, and end tags with nothing to close |
 

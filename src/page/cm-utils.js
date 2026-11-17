@@ -511,4 +511,85 @@
     if (editor.status === 'ready') cb(editor);
     else editor.once('instanceReady', () => cb(editor));
   }, (ckeEl) => !!SHP.ckeditorFor(ckeEl));
+
+  /** The source view's CodeMirror in a CKEditor, while it's in source mode. */
+  SHP.sourceEditorOf = (editor) =>
+    (editor.mode === 'source' && editor.container.$.querySelector('.CodeMirror')?.CodeMirror) || null;
+
+  /**
+   * A text button in a CKEditor's toolbar, cloned from its own Source button
+   * so it matches, placed after the first of `after` (selectors) that exists,
+   * else after Source. Greyed out outside the source view. Returns the button,
+   * or null if the toolbar has no Source button or already has this one.
+   */
+  SHP.addToolbarButton = (editor, { className, label, ariaLabel = label, title, onClick, after = [] }) => {
+    const root = editor.container.$;
+    const source = root.querySelector('.cke_button__source');
+    if (!source || root.querySelector(`.${className}`)) return null;
+    const button = source.cloneNode(true);
+    for (const attr of [...button.attributes]) {
+      if (attr.name.startsWith('on') || attr.name === 'id' || attr.name === 'aria-labelledby') button.removeAttribute(attr.name);
+    }
+    button.className = `cke_button cke_button_off slate-helper-toolbar-button ${className}`;
+    button.title = title;
+    button.setAttribute('aria-label', ariaLabel);
+    button.querySelector('.cke_button_icon')?.remove();
+    const text = button.querySelector('.cke_button_label');
+    if (text) {
+      text.removeAttribute('id');
+      text.textContent = label;
+      text.style.display = 'inline';
+      text.style.paddingLeft = '0';
+    }
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (editor.mode === 'source') onClick(e);
+    });
+    const anchor = after.map((s) => root.querySelector(s)).find(Boolean) || source;
+    anchor.after(button);
+
+    // CKEditor's skin dims only a disabled button's icon, and these are just
+    // a label, so dim that the same way (outside the source view).
+    SHP.injectStyle('toolbar-button', `
+      a.cke_button.slate-helper-toolbar-button.cke_button_disabled .cke_button_label { opacity: 0.3; }
+      a.cke_button.slate-helper-toolbar-button.cke_button_disabled { cursor: default; }
+    `);
+    const updateState = () => {
+      const enabled = editor.mode === 'source';
+      button.classList.toggle('cke_button_disabled', !enabled);
+      button.setAttribute('aria-disabled', String(!enabled));
+    };
+    editor.on('mode', updateState);
+    updateState();
+    return button;
+  };
+
+  /**
+   * Line wrapping in source views: the "Don't wrap long lines" setting
+   * (source-no-wrap), which the Wrap button (source-wrap-button) changes as
+   * you go. noWrap is null until either says otherwise, leaving Slate's own
+   * setting (it wraps).
+   */
+  const wrapListeners = [];
+  let wrapWatching = false;
+  const applyWrap = (cm) => {
+    const wrap = !SHP.lineWrap.noWrap;
+    if (SHP.lineWrap.noWrap !== null && cm.getOption('lineWrapping') !== wrap) cm.setOption('lineWrapping', wrap);
+  };
+  SHP.lineWrap = {
+    noWrap: null,
+    /** Set it for every editor on the page now and every one opened later. */
+    set(noWrap) {
+      this.noWrap = noWrap;
+      if (!wrapWatching) {
+        wrapWatching = true;
+        SHP.onCodeMirror(applyWrap);
+      }
+      for (const el of document.querySelectorAll('.CodeMirror')) if (el.CodeMirror) applyWrap(el.CodeMirror);
+      wrapListeners.forEach((cb) => cb());
+    },
+    /** Whether source views wrap now. */
+    wraps() { return this.noWrap !== true; },
+    onChange(cb) { wrapListeners.push(cb); },
+  };
 })();

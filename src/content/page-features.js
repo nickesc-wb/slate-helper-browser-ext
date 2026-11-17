@@ -203,8 +203,16 @@
     group: 'Editing',
     subgroup: 'Tools',
     name: 'Don\'t wrap long lines',
-    description: 'Long lines stay on one row and the editor scrolls sideways, instead of wrapping onto the next row.',
+    description: 'Long lines stay on one row and the editor scrolls sideways, instead of wrapping onto the next row. The Wrap button changes this too.',
     defaultEnabled: false,
+  });
+
+  page({
+    id: 'source-wrap-button',
+    group: 'Editing',
+    subgroup: 'Tools',
+    name: 'Wrap button',
+    description: 'A Wrap button in the editor toolbar turns line wrapping on and off in the source view, and saves your choice as "Don\'t wrap long lines".',
   });
 
   page({

@@ -33,6 +33,10 @@
 
   SH.getSettings = () => chrome.storage.sync.get(SH.DEFAULT_SETTINGS);
 
+  // Settings a page feature may save (slate-helper:set-setting in main.js):
+  // source-no-wrap, from the Wrap button.
+  SH.PAGE_SETTINGS = ['source-no-wrap'];
+
   // Popup section order. Features without a group go last.
   SH.GROUPS = ['Dialogs', 'Editing', 'Utilities', 'Extension'];
 

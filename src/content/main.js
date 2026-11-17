@@ -62,6 +62,22 @@
     chrome.runtime.sendMessage({ type: 'slate-helper:inject', name: e.detail }).catch(() => {});
   });
 
+  // A page feature saving a setting the person changed on the page (the Wrap
+  // button). Any script on the page can send this event, so only the settings
+  // in SH.PAGE_SETTINGS are accepted, and only true/false.
+  document.addEventListener('slate-helper:set-setting', async (e) => {
+    let request;
+    try { request = JSON.parse(e.detail); } catch { return; }
+    const { key, value } = request || {};
+    if (!SH.PAGE_SETTINGS.includes(key) || typeof value !== 'boolean') return;
+    const { features: saved } = await SH.getSettings();
+    saved[key] = value;
+    await chrome.storage.sync.set({ features: saved });
+    const info = features.find((f) => f.id === key);
+    if (info) info.enabled = value; // what the popup shows for this page
+    SH.log('saved from the page', key, value);
+  });
+
   // Hand the enabled page-world features over to src/page/runtime.js.
   const pageEnabled = SH.features
     .filter((f, i) => f.world === 'page' && features[i].enabled && features[i].appliesHere)

@@ -65,6 +65,8 @@ Content scripts run in an *isolated world*: they share the page's DOM but can't 
 
 The isolated world owns detection and settings. Once it decides the page is Slate, it writes the enabled page-world feature ids and options to `<html data-slate-helper-config>` and fires `slate-helper:activate`. `src/page/runtime.js` picks that up and starts those features.
 
+The other way, a page feature can save a setting someone changed on the page by firing `slate-helper:set-setting` on `document` with a JSON string `{ key, value }` as `detail` (a string, since objects don't cross worlds). Any script on the page can fire that event, so `main.js` only saves keys listed in `SH.PAGE_SETTINGS` (`core.js`), and only `true` / `false`. The one so far is `source-no-wrap`, from the Wrap button. The change applies to other tabs when they next load, like a change in the popup.
+
 ### On-demand libraries
 
 The language tools are too big to load into every page, so they live in `src/vendor/` and load only when a page feature asks:
@@ -129,6 +131,12 @@ Notes:
 ### Portal editor insert
 
 `portal-insert-block` (isolated world) reuses Slate's own palette click instead of creating blocks itself. In the portal editor each column is a jQuery UI sortable `.part_rows_container`, and the palette is `.toolbox_container > .toolbox_element[data-clickable="1"]`. Clicking a palette item appends a placeholder `<div id="part_<timestamp>">` to the *first* container and opens the block's editor dialog, which refers to the placeholder by id. The feature clicks the real palette item, moves the new placeholder into the hovered gap, and leaves the rest to Slate: when the block is saved Slate renders it in place of the placeholder and posts `save_part_order` with the page's order, so the position sticks (checked on a live portal). Cancel removes the placeholder as usual. Gaps are computed per container, so layouts with several columns work the same way. The menu is a fresh copy of the palette each time it opens, so it shows whatever block types that editor offers.
+
+### Toolbar buttons and line wrapping
+
+Format and Wrap are text buttons in the CKEditor toolbar made by `SHP.addToolbarButton` (`cm-utils.js`): a copy of CKEditor's own Source button with its label swapped, greyed out outside the source view. Wrap goes after Format, Format after Find/Replace.
+
+`SHP.lineWrap` holds the line-wrapping choice for every source view on the page. `source-no-wrap` ("Don't wrap long lines", off by default) sets it when the page loads; the Wrap button (`source-wrap-button`, on by default) flips it, applies it to every open CodeMirror and the ones opened later, and saves it as `source-no-wrap` (see Two worlds). Until either sets it, editors keep Slate's own setting, which wraps. The button shows CKEditor's pressed look (`cke_button_on`, `aria-pressed`) while lines wrap.
 
 ### Settings
 

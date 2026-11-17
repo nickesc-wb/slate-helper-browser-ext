@@ -249,50 +249,21 @@
     }
   };
 
-  // A toolbar button cloned from CKEditor's own Source button, so it matches,
-  // placed after Find/Replace with the other code-editing tools.
+  // A toolbar button after Find/Replace, with the other code-editing tools,
+  // named for what it does: Prettier, when that option's on.
   const addButton = (editor) => {
-    const source = editor.container.$.querySelector('.cke_button__source');
-    if (!source || editor.container.$.querySelector(`.${BUTTON_CLASS}`)) return;
-    const button = source.cloneNode(true);
-    for (const attr of [...button.attributes]) {
-      if (attr.name.startsWith('on') || attr.name === 'id' || attr.name === 'aria-labelledby') button.removeAttribute(attr.name);
-    }
-    // Named for what it does: Prettier, when that option's on.
     const prettier = SHP.option('source-format', 'prettier');
-    button.className = `cke_button cke_button_off ${BUTTON_CLASS}`;
-    button.title = prettier ? 'Format with Prettier (Shift+Alt+F)' : 'Format code (Shift+Alt+F)';
-    button.setAttribute('aria-label', prettier ? 'Format with Prettier' : 'Format code');
-    button.querySelector('.cke_button_icon')?.remove();
-    const label = button.querySelector('.cke_button_label');
-    if (label) {
-      label.removeAttribute('id');
-      label.textContent = prettier ? 'Prettier' : 'Format';
-      label.style.display = 'inline';
-      label.style.paddingLeft = '0';
-    }
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      const cm = editor.mode === 'source' && codeMirrorOf(editor);
-      if (cm) format(cm, editor);
+    SHP.addToolbarButton(editor, {
+      className: BUTTON_CLASS,
+      label: prettier ? 'Prettier' : 'Format',
+      ariaLabel: prettier ? 'Format with Prettier' : 'Format code',
+      title: prettier ? 'Format with Prettier (Shift+Alt+F)' : 'Format code (Shift+Alt+F)',
+      after: ['.cke_button__replace'],
+      onClick: () => {
+        const cm = codeMirrorOf(editor);
+        if (cm) format(cm, editor);
+      },
     });
-    const anchor = editor.container.$.querySelector('.cke_button__replace') || source;
-    anchor.after(button);
-
-    // CKEditor's skin dims only a disabled button's icon, and this one is
-    // just a label, so dim that the same way (outside the source view).
-    SHP.injectStyle('format-button', `
-      a.cke_button.${BUTTON_CLASS}.cke_button_disabled .cke_button_label { opacity: 0.3; }
-      a.cke_button.${BUTTON_CLASS}.cke_button_disabled { cursor: default; }
-    `);
-
-    const updateState = () => {
-      const enabled = editor.mode === 'source';
-      button.classList.toggle('cke_button_disabled', !enabled);
-      button.setAttribute('aria-disabled', String(!enabled));
-    };
-    editor.on('mode', updateState);
-    updateState();
   };
 
   SHP.registerFeature('source-format', () => {

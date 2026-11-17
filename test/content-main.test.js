@@ -4,7 +4,7 @@ import { loadScripts, sleep } from './helpers/load.js';
 // Just enough of the chrome.* API for the isolated-world scripts.
 const stubChrome = (stored = {}) => {
   globalThis.chrome = {
-    storage: { sync: { get: vi.fn(async (defaults) => ({ ...defaults, ...stored })) } },
+    storage: { sync: { get: vi.fn(async (defaults) => ({ ...defaults, ...stored })), set: vi.fn(async () => {}) } },
     runtime: {
       onMessage: { addListener: vi.fn() },
       sendMessage: vi.fn(async () => {}),
@@ -85,6 +85,24 @@ describe('content entry point', () => {
     document.dispatchEvent(new CustomEvent('slate-helper:load', { detail: '../popup/popup' }));
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'slate-helper:inject', name: 'source-tools' });
     expect(chrome.runtime.sendMessage).not.toHaveBeenCalledWith({ type: 'slate-helper:inject', name: '../popup/popup' });
+  });
+
+  it('saves the one setting the page may change (the Wrap button), and nothing else', async () => {
+    const state = await run({ features: { 'source-autocomplete': false } });
+    const send = (detail) => document.dispatchEvent(new CustomEvent('slate-helper:set-setting', { detail }));
+    send(JSON.stringify({ key: 'source-autocomplete', value: true }));
+    send(JSON.stringify({ key: 'source-no-wrap', value: 'yes' }));
+    send('not json');
+    await sleep(0);
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled();
+
+    send(JSON.stringify({ key: 'source-no-wrap', value: true }));
+    // (Each run() above added a listener, so it may be saved more than once.)
+    await vi.waitFor(() => expect(chrome.storage.sync.set).toHaveBeenCalled());
+    for (const [arg] of chrome.storage.sync.set.mock.calls) {
+      expect(arg).toEqual({ features: { 'source-autocomplete': false, 'source-no-wrap': true } });
+    }
+    expect(state.features.find((f) => f.id === 'source-no-wrap').enabled).toBe(true); // what the popup shows
   });
 
   it('does nothing on a site turned off in the popup', async () => {
