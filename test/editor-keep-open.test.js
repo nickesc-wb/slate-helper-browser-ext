@@ -77,8 +77,10 @@ const ctrlS = () => {
 
 // Slate's stand-ins. The feature wraps Dialog.Load/Unload and Lazy.Commit when
 // it starts, so the same FW object is kept for the whole file and only its
-// mocks are reset; tests read the calls from these mocks.
-const commit = vi.fn();
+// mocks are reset; tests read the calls from these mocks. Commits are also kept
+// in a list of their own, which Vitest's clearing between tests doesn't empty.
+const commits = [];
+const commit = vi.fn((...args) => { commits.push(args); });
 const unload = vi.fn();
 const load = vi.fn();
 let slateCtrlS;
@@ -102,7 +104,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   slateCtrlS.mockClear();
-  commit.mockReset();
+  // End any keep-open save a test left waiting, so the next one isn't queued.
+  for (const call of commits.splice(0)) call[2]?.error?.();
+  commit.mockClear();
   unload.mockClear();
   load.mockClear();
 });
@@ -157,6 +161,87 @@ describe('editor-keep-open Save & Close', () => {
   });
 });
 
+// Slate's response arrives later; these play it at a chosen moment.
+describe('editor-keep-open while a save waits for its response', () => {
+  const respond = (call = commit.mock.calls.at(-1)) => {
+    window.FW.Dialog.Unload(); // from the response's script, during no event
+    call[2]?.complete?.();
+  };
+
+  // Cancel's onclick is Slate's FW.Dialog.Unload(), run during the click.
+  const addCancel = () => {
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => window.FW.Dialog.Unload());
+    document.querySelector('.action').append(cancel);
+    return cancel;
+  };
+
+  it('restores the label after a save that finishes while "Saved ✓" shows', () => {
+    vi.useFakeTimers();
+    try {
+      dialog();
+      slateSave().click();
+      respond();
+      slateSave().click();
+      respond();
+      expect(slateSave().textContent).toBe('Saved ✓');
+      vi.advanceTimersByTime(2000);
+      expect(slateSave().textContent).toBe('Save');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('runs a second Save after the first is answered, not alongside it', () => {
+    dialog();
+    slateSave().click();
+    slateSave().click();
+    ctrlS();
+    expect(commit).toHaveBeenCalledTimes(1);
+    respond();
+    expect(commit).toHaveBeenCalledTimes(2); // the queued Save, once
+    expect(keepOpenCallbacks().complete).toBeTypeOf('function');
+    respond();
+    expect(unload).not.toHaveBeenCalled();
+  });
+
+  it('runs Save & Close clicked meanwhile once the save is answered', async () => {
+    await open('/manage/database/portal/widget/html?cmd=edit_part&id=abc'); // the feature's own Save & Close
+    slateSave().click();
+    button('Save & Close').click();
+    expect(commit).toHaveBeenCalledTimes(1);
+    respond();
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(keepOpenCallbacks()).toBeUndefined(); // Slate's Save, which closes
+  });
+
+  it('closes on Cancel during a save, and skips the response closing what is left', () => {
+    dialog();
+    const cancel = addCancel();
+    slateSave().click();
+    cancel.click();
+    expect(unload).toHaveBeenCalledTimes(1); // the user's close went through
+    respond();
+    expect(unload).toHaveBeenCalledTimes(1); // the response's didn't close another dialog
+  });
+
+  it('stops waiting for a response that never comes', () => {
+    vi.useFakeTimers();
+    try {
+      dialog();
+      slateSave().click();
+      vi.advanceTimersByTime(31000);
+      window.FW.Dialog.Unload(); // a later close, from anything
+      expect(unload).toHaveBeenCalledTimes(1);
+      slateSave().click(); // not queued behind the lost save
+      expect(commit).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 // Content block dialogs (Database > Content Blocks > a block): Edit Key, with
 // the default output in a WYSIWYG editor, and a value's dialog. New Key and New
 // Code open them without original_key / id.
@@ -188,7 +273,7 @@ describe('editor-keep-open in content block dialogs', () => {
     document.querySelector('[name=key]').value = 'renamed';
     slateSave().click();
     expect(keepOpenCallbacks()).toBeUndefined();
-    commit.mockReset();
+    commit.mockClear();
     document.querySelector('[name=key]').value = 'k';
     document.querySelector('[name=type]').value = 'html';
     slateSave().click();
@@ -250,15 +335,18 @@ describe('editor-keep-open on a new record', () => {
 
   // Clicks Save and plays Slate's response: close the dialog, then turn the
   // placeholder into the saved part.
-  const savePart = (savedId) => {
-    slateSave().click();
+  const savePartWith = (call, savedId) => {
     window.FW.Dialog.Unload();
     const placeholder = document.getElementById('part_1');
     if (savedId && placeholder) {
       placeholder.id = `div_${savedId}`;
       placeholder.setAttribute('data-id', savedId);
     }
-    keepOpenCallbacks().complete();
+    call[2].complete();
+  };
+  const savePart = (savedId) => {
+    slateSave().click();
+    savePartWith(commit.mock.calls.at(-1), savedId);
   };
 
   it('points the dialog at the part its first save created', () => {
@@ -277,6 +365,16 @@ describe('editor-keep-open on a new record', () => {
     savePart(null);
     expect(unload).toHaveBeenCalledTimes(1);
     expect(options.cancel).toBeTypeOf('function');
+  });
+
+  it('sends a Save clicked during the first save as an edit of the saved part', () => {
+    const { form } = partDialog('div=part_1');
+    slateSave().click();
+    slateSave().click(); // before the response
+    expect(commit).toHaveBeenCalledTimes(1);
+    savePartWith(commit.mock.calls[0], 'abc');
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(new URLSearchParams(form.getAttribute('action').split('?')[1]).get('id')).toBe('abc');
   });
 
   it('keeps an existing record open as before', () => {

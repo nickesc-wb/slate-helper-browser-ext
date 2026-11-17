@@ -26,27 +26,47 @@
 // dialog at afterwards (a new content block or value, a new part without a
 // placeholder) keeps Slate's Save, relabeled Save & Close, and no second button.
 // Saving a content block key under a new name or type also closes the dialog.
+//
+// While a save waits for its response: a second Save (or Save & Close, or
+// Ctrl+S) waits and runs once the first is answered, so it posts with the
+// first one's result (a new part's id) instead of alongside it. A close from
+// a click or key press (Cancel, ×, Esc) goes through; only the response's
+// close is skipped. After SAVE_TIMEOUT with no response, nothing is skipped.
 (() => {
   const SHP = window.SlateHelperPage;
   const SAVED_LABEL = 'Saved ✓';
 
-  let keepOpen = false;
+  // A wait this long for Slate's response means it isn't coming (a request
+  // that hung): stop waiting to skip its close.
+  const SAVE_TIMEOUT = 30000;
+
   // The Save click whose commit should keep the dialog open, set just before
   // Slate's onclick runs and taken by the commit it makes.
   let armed = null;
+  // The keep-open save waiting for Slate's response: { button, form, isNew,
+  // placeholder, closeSkipped, queued, timer }. One at a time; a Save clicked
+  // meanwhile is queued (see onSaveClick).
+  let saving = null;
   // Set by Save & Close so its click on Save runs Slate's onclick untouched.
   let bypass = false;
   // Slate keeps the options object a dialog was loaded with and reads its
   // cancel handler when the dialog is cancelled, so remember it per dialog.
   const dialogOptions = new WeakMap();
 
+  // A close from a click or key press (Cancel, ×, Esc) is the user's. Slate's
+  // save response closes from a script in its hidden iframe, during no event
+  // of this window.
+  const byUser = () => window.event instanceof UIEvent;
+
   const patchDialog = () => {
     const dialog = window.FW?.Dialog;
     if (dialog?.Unload && !dialog.Unload.slateHelperPatched) {
       const original = dialog.Unload;
       const patched = function (...args) {
-        if (keepOpen) {
-          keepOpen = false;
+        // Skip the one close the response makes. If the user closed the dialog
+        // meanwhile, that's skipped too: the dialog it meant is already gone.
+        if (saving && !saving.closeSkipped && !byUser()) {
+          saving.closeSkipped = true;
           SHP.log('editor-keep-open: skipped dialog close after save');
           return undefined;
         }
@@ -153,31 +173,47 @@
   const isSaveButton = (button) =>
     /FW\.Lazy\.Commit\(this,\s*\{\s*cmd:\s*'save'\s*[,}]/.test(button.getAttribute('onclick') || '');
 
+  // The button's own label is kept on it, so a save that finishes while
+  // "Saved ✓" still shows doesn't take that for the label to restore.
+  const flashTimers = new WeakMap();
   const flashSaved = (button) => {
-    const label = button.textContent;
+    button.dataset.slateHelperLabel ??= button.textContent;
+    clearTimeout(flashTimers.get(button));
     button.textContent = SAVED_LABEL;
-    setTimeout(() => { button.textContent = label; }, 1500);
+    flashTimers.set(button, setTimeout(() => { button.textContent = button.dataset.slateHelperLabel; }, 1500));
+  };
+
+  const finish = (save) => {
+    clearTimeout(save.timer);
+    if (saving === save) saving = null;
   };
 
   // Slate's callbacks (if it passed any) plus the keep-open ones.
-  const keepOpenCallbacks = (callbacks, { button, form, isNew, placeholder }) => ({
+  const keepOpenCallbacks = (callbacks, save) => ({
     ...callbacks,
     complete(...args) {
       callbacks?.complete?.apply(this, args);
+      if (saving !== save) return; // timed out: its close wasn't skipped
+      finish(save);
       // complete runs after the response is handled. If the response didn't
-      // try to close the dialog (e.g. it showed an error), don't let the flag
-      // leak into the next Cancel/close.
-      const closedSkipped = !keepOpen;
-      keepOpen = false;
-      if (!closedSkipped) return;
+      // try to close the dialog (e.g. it showed an error), or the user closed
+      // it meanwhile, there's nothing to keep open.
+      const { button, form, isNew, placeholder, closeSkipped, queued } = save;
+      if (!closeSkipped || !form.isConnected) return;
       if (isNew && !adoptSavedRecord(form, placeholder)) {
         window.FW.Dialog.Unload(); // another Save would create another record
         return;
       }
-      if (button.isConnected) flashSaved(button);
+      flashSaved(button);
+      // A Save (or Save & Close) clicked while this one waited.
+      if (queued) {
+        bypass = queued.bypass;
+        button.click();
+        bypass = false;
+      }
     },
     error(...args) {
-      keepOpen = false;
+      finish(save);
       callbacks?.error?.apply(this, args);
     },
   });
@@ -187,11 +223,16 @@
     if (!lazy?.Commit || lazy.Commit.slateHelperPatched) return;
     const original = lazy.Commit;
     const patched = function (el, args, callbacks, ...rest) {
-      const save = armed;
-      if (save && el === save.button && args?.cmd === 'save' && (callbacks == null || typeof callbacks === 'object')) {
+      const click = armed;
+      if (click && el === click.button && args?.cmd === 'save' && (callbacks == null || typeof callbacks === 'object')) {
         armed = null;
         patchDialog();
-        keepOpen = true;
+        const save = { ...click, closeSkipped: false, queued: null };
+        save.timer = setTimeout(() => {
+          SHP.log('editor-keep-open: no response to save, stopped waiting');
+          finish(save);
+        }, SAVE_TIMEOUT);
+        saving = save;
         return original.call(this, el, args, keepOpenCallbacks(callbacks, save), ...rest);
       }
       return original.call(this, el, args, callbacks, ...rest);
@@ -201,16 +242,26 @@
   };
 
   // Runs before Save's own onclick: arm its commit to keep the dialog open.
+  // Returns true to stop the click (Slate's onclick then doesn't run).
   const onSaveClick = (button) => {
     armed = null; // a Save whose Validate failed never committed
-    if (bypass) { bypass = false; return; }
+    // A second Save before the first is answered would go out without the
+    // first one's result (a new record's id, so it would create another).
+    // Run it once the first is done instead; Save & Close too.
+    if (saving) {
+      if (saving.button === button) saving.queued = { bypass };
+      bypass = false;
+      return true;
+    }
+    if (bypass) { bypass = false; return false; }
     const host = button.closest('.dialog_host');
-    if (blockMode(host) !== 'keep') return;
+    if (blockMode(host) !== 'keep') return false;
     const { type, form } = blockEditor(host);
-    if (type.closesOnSave?.(form)) return;
+    if (type.closesOnSave?.(form)) return false;
     patchCommit();
     const isNew = type.isNew(form);
     armed = { button, form, isNew, placeholder: isNew ? type.placeholder(form) : null };
+    return false;
   };
 
   // "Save & Close" just before Save: clicks Save with the feature stepped
@@ -264,7 +315,9 @@
     // Capture phase on the document runs before the button's own onclick.
     document.addEventListener('click', (e) => {
       const button = e.target.closest?.('.dialog_host .action button');
-      if (button && isSaveButton(button)) onSaveClick(button);
+      if (!button || !isSaveButton(button) || !onSaveClick(button)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
     }, true);
   });
 })();
