@@ -13,10 +13,10 @@
 // page (cmd=edit_part, e.g. a portal view's Static Content), a content block
 // (Database > Content Blocks): its key with the default output (cmd=edit_key)
 // or one of its values (cmd=edit_code), or a Deliver message (deliver/message,
-// cmd=edit). Settings dialogs that happen to have rich-text fields (a portal's
-// or form's Edit Details, a form field's label) keep Slate's Save, which closes
-// them: their saves update the page around them, and a dialog left open
-// invites a second Save.
+// cmd=edit). DIALOGS below lists them. Settings dialogs that happen to have
+// rich-text fields (a portal's or form's Edit Details, a form field's label)
+// keep Slate's Save, which closes them: their saves update the page around
+// them, and a dialog left open invites a second Save.
 //
 // A new record's dialog posts without an id, so every Save would create another
 // record. For a new portal part the response renames the placeholder named by
@@ -93,54 +93,60 @@
     return true;
   };
 
-  // What a dialog's URL edits: a portal part, a content block's key or one of
-  // its values, or a Deliver message. Only edit_part is checked by cmd alone
-  // (portals, forms and others each have their own path for it).
-  const KINDS = [
-    { kind: 'part', cmd: 'edit_part' },
-    { kind: 'key', cmd: 'edit_key', path: /\/database\/translation\/edit$/ },
-    { kind: 'code', cmd: 'edit_code', path: /\/database\/translation\/edit$/ },
-    { kind: 'message', cmd: 'edit', path: /\/deliver\/message$/ },
+  // Most records are named by the id in the dialog's URL; a new one has none.
+  const noIdInUrl = (form) => !query(form.getAttribute('action')).get('id');
+  const TRANSLATION = /\/database\/translation\/edit$/;
+
+  // Every dialog the feature keeps open, and everything that differs between
+  // them. A dialog matches by its URL's cmd and path (edit_part by cmd alone:
+  // portals, forms and others each have their own path for it).
+  //   isNew(form): a new record, which a second Save would create again.
+  //   placeholder(form): for a new record, the page element its saved record
+  //     takes over, so the dialog can be pointed at it (see the top).
+  //   closesOnSave(form): this save should close the dialog after all.
+  const DIALOGS = [
+    {
+      name: 'portal part', cmd: 'edit_part', isNew: noIdInUrl,
+      placeholder: (form) => {
+        const div = query(form.getAttribute('action')).get('div');
+        return div ? document.getElementById(div) : null;
+      },
+    },
+    {
+      name: 'content block key', cmd: 'edit_key', path: TRANSLATION,
+      isNew: (form) => !form.elements.original_key?.value,
+      // Renamed or retyped: the page and the form's original_key /
+      // original_type still name the old key.
+      closesOnSave: ({ elements: e }) => e.key?.value !== e.original_key?.value || e.type?.value !== e.original_type?.value,
+    },
+    { name: 'content block value', cmd: 'edit_code', path: TRANSLATION, isNew: noIdInUrl },
+    { name: 'Deliver message', cmd: 'edit', path: /\/deliver\/message$/, isNew: noIdInUrl },
   ];
-  const urlKind = (url) => {
+
+  const dialogFor = (url) => {
     const cmd = query(url).get('cmd');
     const path = (url || '').split('?')[0];
-    return KINDS.find((k) => k.cmd === cmd && (!k.path || k.path.test(path)))?.kind ?? null;
+    return DIALOGS.find((d) => d.cmd === cmd && (!d.path || d.path.test(path))) ?? null;
   };
 
-  const blockKind = (host) => {
-    if (!host?.querySelector('.cke')) return null;
-    const urls = [host.querySelector('form')?.getAttribute('action'), host.querySelector('.dialog')?.getAttribute('data-href')];
-    return urls.map(urlKind).find(Boolean) ?? null;
-  };
-
-  // A content block key is named by the form's original_key field; everything
-  // else by the id in the URL. A new one has neither.
-  const isNewRecord = (form, kind) =>
-    kind === 'key' ? !form?.elements.original_key?.value : !query(form?.getAttribute('action')).get('id');
-
-  // The page element a new portal part's saved part replaces (see the top).
-  const placeholderFor = (form) => {
-    const div = query(form?.getAttribute('action')).get('div');
-    return div ? document.getElementById(div) : null;
+  // The block editor a dialog host holds: one of DIALOGS with a WYSIWYG editor
+  // and a form, or null.
+  const blockEditor = (host) => {
+    const form = host?.querySelector('form');
+    if (!form || !host.querySelector('.cke')) return null;
+    const urls = [form.getAttribute('action'), host.querySelector('.dialog')?.getAttribute('data-href')];
+    const type = urls.map(dialogFor).find(Boolean);
+    return type ? { type, form } : null;
   };
 
   // 'keep': Save keeps the dialog open. 'close': it's a block editor, but a
   // second Save from it would create another record, so Save stays Slate's
   // (labeled Save & Close). null: not a block editor, left alone.
   const blockMode = (host) => {
-    const kind = blockKind(host);
-    if (!kind) return null;
-    const form = host.querySelector('form');
-    if (!isNewRecord(form, kind)) return 'keep';
-    return kind === 'part' && placeholderFor(form) ? 'keep' : 'close';
-  };
-
-  // Renaming a key or changing its type: the page and the form's original_key /
-  // original_type still name the old one, so this save closes like Slate's.
-  const keyChanged = (form) => {
-    const e = form?.elements;
-    return !!e && (e.key?.value !== e.original_key?.value || e.type?.value !== e.original_type?.value);
+    const editor = blockEditor(host);
+    if (!editor) return null;
+    const { type, form } = editor;
+    return !type.isNew(form) || type.placeholder?.(form) ? 'keep' : 'close';
   };
 
   // Slate's Save onclick, plain or with extra arguments (a message's video).
@@ -200,12 +206,11 @@
     if (bypass) { bypass = false; return; }
     const host = button.closest('.dialog_host');
     if (blockMode(host) !== 'keep') return;
-    const form = button.closest('form');
-    const kind = blockKind(host);
-    if (kind === 'key' && keyChanged(form)) return;
+    const { type, form } = blockEditor(host);
+    if (type.closesOnSave?.(form)) return;
     patchCommit();
-    const isNew = !!form && isNewRecord(form, kind);
-    armed = { button, form, isNew, placeholder: isNew ? placeholderFor(form) : null };
+    const isNew = type.isNew(form);
+    armed = { button, form, isNew, placeholder: isNew ? type.placeholder(form) : null };
   };
 
   // "Save & Close" just before Save: clicks Save with the feature stepped
